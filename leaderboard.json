@@ -1,0 +1,38 @@
+[
+  {
+    "id": "lb_init_1",
+    "playerName": "⚡ Şimşek Ali",
+    "avatar": "🦊",
+    "score": 2450,
+    "accuracy": 94,
+    "avgReactionMs": 380,
+    "date": "14:30"
+  },
+  {
+    "id": "lb_init_2",
+    "playerName": "🚀 Roket Can",
+    "avatar": "🚀",
+    "score": 1980,
+    "accuracy": 88,
+    "avgReactionMs": 440,
+    "date": "15:12"
+  },
+  {
+    "id": "lb_init_3",
+    "playerName": "🎯 Refleks Zeynep",
+    "avatar": "🎯",
+    "score": 1720,
+    "accuracy": 85,
+    "avgReactionMs": 490,
+    "date": "15:45"
+  },
+  {
+    "playerName": "Alev Ayşe",
+    "avatar": "🦁",
+    "score": 1125,
+    "accuracy": 100,
+    "avgReactionMs": 1047,
+    "id": "lb_ia0ny5r",
+    "date": "16:29"
+  }
+]
