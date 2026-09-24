@@ -251,9 +251,20 @@ export const HostLobby: React.FC<HostLobbyProps> = ({
                   Oyuncu Slotları ({playerCount}/4)
                 </h2>
               </div>
-              <span className="text-xs px-3 py-1 bg-white/10 rounded-full font-bold text-sky-300">
-                {playerCount === 4 ? 'Oda Doldu! Otomatik Başlıyor...' : 'Katılımcılar Bekleniyor'}
-              </span>
+              <div className="flex items-center gap-2">
+                {playerCount > 0 && (
+                  <button
+                    onClick={() => roomData.players.forEach((p) => onRemovePlayer(p.id))}
+                    className="text-xs px-2.5 py-1 bg-red-500/20 hover:bg-red-500/40 text-red-300 rounded-lg font-bold transition-all cursor-pointer"
+                    title="Tüm Oyuncuları Odadan Çıkar"
+                  >
+                    Tümünü Temizle
+                  </button>
+                )}
+                <span className="text-xs px-3 py-1 bg-white/10 rounded-full font-bold text-sky-300">
+                  {playerCount === 4 ? 'Oda Doldu! Otomatik Başlıyor...' : 'Katılımcılar Bekleniyor'}
+                </span>
+              </div>
             </div>
 
             {/* 4 Player Slots Grid */}
@@ -270,7 +281,7 @@ export const HostLobby: React.FC<HostLobbyProps> = ({
                       <div className="flex items-center gap-3">
                         <span className="text-4xl filter drop-shadow">{player.avatar}</span>
                         <div>
-                          <div className="font-black text-lg text-white truncate max-w-[120px] sm:max-w-[150px]">
+                          <div className="font-black text-lg text-white truncate max-w-[110px] sm:max-w-[140px]">
                             {player.name}
                           </div>
                           <span
@@ -285,13 +296,17 @@ export const HostLobby: React.FC<HostLobbyProps> = ({
                         </div>
                       </div>
 
-                      {/* Remove Button for Host */}
+                      {/* Prominent Remove Button for Host */}
                       <button
-                        onClick={() => onRemovePlayer(player.id)}
-                        className="w-8 h-8 rounded-full bg-white/10 hover:bg-red-500/40 text-white/60 hover:text-white flex items-center justify-center transition-all cursor-pointer"
-                        title="Oyuncuyu Çıkar"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRemovePlayer(player.id);
+                        }}
+                        className="px-2.5 py-1.5 rounded-xl bg-red-500/30 hover:bg-red-600 text-red-200 hover:text-white text-xs font-bold flex items-center gap-1 transition-all cursor-pointer shadow"
+                        title="Bu oyuncuyu lobiden çıkar"
                       >
-                        <X className="w-4 h-4" />
+                        <X className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Çıkar</span>
                       </button>
                     </div>
                   );

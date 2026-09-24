@@ -218,6 +218,16 @@ export class GameManager {
       }
     });
 
+    // Host removes a player
+    socket.on('hostRemovePlayer', ({ playerId }) => {
+      if (this.players.has(playerId)) {
+        this.players.delete(playerId);
+        this.io.to(playerId).emit('playerKicked');
+        this.io.to(playerId).emit('errorNotification', 'Görevli tarafından lobiden çıkarıldınız.');
+        this.broadcastRoomUpdate();
+      }
+    });
+
     // Host sets custom join URL
     socket.on('hostSetJoinUrl', ({ customUrl }) => {
       this.setCustomUrl(customUrl);
@@ -245,7 +255,7 @@ export class GameManager {
       }
       this.playerLastTapTimestamp.set(socket.id, now);
 
-      const tappedCard = this.currentTask.cards.find(c => c.id === cardId);
+      const tappedCard = this.currentTask.cards.find((c) => c.id === cardId);
       if (!tappedCard) return;
 
       const reactionTimeMs = Math.max(50, now - this.currentTask.createdAt);
@@ -262,9 +272,10 @@ export class GameManager {
           player.maxCombo = player.combo;
         }
 
-        // Base points
-        let basePoints = tappedCard.isBonus ? 150 : 100;
-        
+        // Base points: 2X if round has bonus modifier
+        const isBonusRound = Boolean(this.currentTask.badgeText?.includes('2X'));
+        let basePoints = isBonusRound ? 200 : 100;
+
         // Speed bonus
         let speedBonus = 0;
         if (reactionTimeMs < 400) speedBonus = 50;
@@ -283,7 +294,7 @@ export class GameManager {
         player.combo = 0;
         pointsDelta = -25; // Balanced fair penalty
         player.score = Math.max(0, player.score + pointsDelta);
-        // Player is NOT added to playerTappedForCurrentTask, allowing them to retry!
+        // Player is NOT locked out; they can retry after 220ms!
       }
 
       // Send feedback to specific player and update room
@@ -300,7 +311,7 @@ export class GameManager {
       // If all active players have solved correctly, advance to next task quickly
       if (this.playerTappedForCurrentTask.size >= this.players.size) {
         if (this.taskTimeout) clearTimeout(this.taskTimeout);
-        setTimeout(() => this.nextTask(), 250);
+        setTimeout(() => this.nextTask(), 150);
       }
     });
 
@@ -524,27 +535,21 @@ export class GameManager {
     this.broadcastRoomUpdate();
   }
 
-  // Reset Game back to Lobby
+  // Reset Game back to Lobby & Clear previous players for the next group
   public resetGame() {
     if (this.gameInterval) clearInterval(this.gameInterval);
     if (this.taskTimeout) clearTimeout(this.taskTimeout);
     if (this.countdownInterval) clearInterval(this.countdownInterval);
-    this.botIntervals.forEach(t => clearTimeout(t));
+    this.botIntervals.forEach((t) => clearTimeout(t));
 
     this.state = 'LOBBY';
     this.currentTask = null;
     this.currentPhase = 1;
     this.timeRemaining = this.settings.totalDurationSeconds;
 
-    // Reset player scores
-    for (const player of this.players.values()) {
-      player.score = 0;
-      player.combo = 0;
-      player.maxCombo = 0;
-      player.correctCount = 0;
-      player.wrongCount = 0;
-      player.reactionTimes = [];
-    }
+    // Clear previous players so slots are fresh and empty for the new group standing at the booth!
+    this.players.clear();
+    this.playerTappedForCurrentTask.clear();
 
     this.io.to(this.roomCode).emit('roomReset');
     this.broadcastRoomUpdate();
@@ -556,14 +561,14 @@ export class GameManager {
     const shuffledColors = [...COLOR_PALETTE].sort(() => Math.random() - 0.5);
     const shuffledShapes = [...SHAPES].sort(() => Math.random() - 0.5);
 
-    // Phase 1: Isınma (4 cards, Color or Shape)
+    // Warm-up (4 cards, Color or Shape) - Accelerated to 2100ms
     if (phase === 1) {
       const isColorTask = Math.random() > 0.4;
 
       if (isColorTask) {
         const targetColor = shuffledColors[0];
         const cardColors = shuffledColors.slice(0, 4).sort(() => Math.random() - 0.5);
-        
+
         const cards: CardItem[] = cardColors.map((c, idx) => ({
           id: `c_${idx}_${c.name}`,
           bgColor: c.hex,
@@ -575,11 +580,11 @@ export class GameManager {
           phase: 1,
           type: 'COLOR',
           prompt: `👉 ${targetColor.name} KARTA DOKUN!`,
-          badgeText: '🟢 FAZ 1: ISINMA',
+          badgeText: '🎯 HEDEFİ YAKALA',
           targetKey: targetColor.name,
           cards,
           createdAt: Date.now(),
-          durationMs: 3200,
+          durationMs: 2100,
         };
       } else {
         const targetShape = shuffledShapes[0];
@@ -597,16 +602,16 @@ export class GameManager {
           phase: 1,
           type: 'SHAPE',
           prompt: `✨ ${targetShape.name} ŞEKLİNE DOKUN!`,
-          badgeText: '🟢 FAZ 1: ISINMA',
+          badgeText: '🎯 HEDEFİ YAKALA',
           targetKey: targetShape.type,
           cards,
           createdAt: Date.now(),
-          durationMs: 3200,
+          durationMs: 2100,
         };
       }
     }
 
-    // Phase 2: Stroop Zihin Çelişkisi & Dikkat (6 cards)
+    // Stroop Zihin Çelişkisi & Dikkat (6 cards) - 2000ms
     if (phase === 2) {
       const taskVariety = Math.random();
 
@@ -614,7 +619,7 @@ export class GameManager {
       if (taskVariety < 0.5) {
         const colorA = shuffledColors[0]; // Text meaning
         const colorB = shuffledColors[1]; // Actual ink color (target)
-        
+
         const cards: CardItem[] = shuffledColors.slice(0, 6).map((c, idx) => ({
           id: `stroop_ink_${idx}_${c.name}`,
           bgColor: c.hex,
@@ -627,13 +632,13 @@ export class GameManager {
           type: 'STROOP_COLOR',
           prompt: `🎨 YAZI RENGİNE DOKUN!`,
           subPrompt: `"${colorA.name}" (Yazının rengi neyse ona bas)`,
-          badgeText: '⚡ FAZ 2: STROOP ETKİSİ',
+          badgeText: '🧠 ZİHİN ÇELİŞKİSİ',
           targetKey: colorB.name,
           cards,
           createdAt: Date.now(),
-          durationMs: 2700,
+          durationMs: 2000,
         };
-      } 
+      }
       // Mode B: Stroop Kelimenin Anlamına Dokun (Word Meaning)
       else if (taskVariety < 0.8) {
         const colorA = shuffledColors[0]; // Target meaning
@@ -656,13 +661,13 @@ export class GameManager {
           type: 'STROOP_TEXT',
           prompt: `📖 KELİME ANLAMINA DOKUN!`,
           subPrompt: `"${colorA.name}" yazan kartı bul`,
-          badgeText: '⚡ FAZ 2: KELİME TUZAĞI',
+          badgeText: '📖 KELİME TUZAĞI',
           targetKey: colorA.name,
           cards,
           createdAt: Date.now(),
-          durationMs: 2700,
+          durationMs: 2000,
         };
-      } 
+      }
       // Mode C: Negatif / Olmayan Renk
       else {
         const forbiddenColor = shuffledColors[0];
@@ -684,26 +689,25 @@ export class GameManager {
           type: 'NEGATION',
           prompt: `🚫 ${forbiddenColor.name} OLMAYANA DOKUN!`,
           subPrompt: `Farklı olan tek kartı yakala!`,
-          badgeText: '⚡ FAZ 2: DİKKAT TESTİ',
+          badgeText: '⚠️ DİKKAT TESTİ',
           targetKey: validColor.name,
           cards,
           createdAt: Date.now(),
-          durationMs: 2500,
+          durationMs: 1900,
         };
       }
     }
 
-    // Phase 3: Çılgın Kombo & Altın Hız Fazı (6 cards, 1.8s duration, bonus cards)
+    // Çılgın Kombo & Hız (6 cards, 1600ms, spoiler-free bonus round)
     const targetColor = shuffledColors[0];
-    const isBonusTarget = Math.random() > 0.4;
+    const isBonusRound = Math.random() > 0.4;
 
     const cards: CardItem[] = shuffledColors.slice(0, 6).map((c, idx) => {
-      const isTarget = c.name === targetColor.name;
       return {
         id: `p3_${idx}_${c.name}`,
         bgColor: c.hex,
         shape: shuffledShapes[idx % shuffledShapes.length].type,
-        isBonus: isTarget && isBonusTarget,
+        isBonus: false, // Clean cards without spoiling the answer!
         targetKey: c.name,
       };
     });
@@ -712,13 +716,13 @@ export class GameManager {
       id: taskId,
       phase: 3,
       type: 'COLOR',
-      prompt: isBonusTarget ? `🔥 2X ALTIN HEDEF: ${targetColor.name}!` : `⚡ HIZLI BAS: ${targetColor.name}!`,
-      subPrompt: 'Seri bas, kombo çarpanını patlat!',
-      badgeText: '🔥 FAZ 3: ÇILGIN HIZ',
+      prompt: isBonusRound ? `🔥 2X ALTIN TUR: ${targetColor.name}!` : `⚡ HIZLI BAS: ${targetColor.name}!`,
+      subPrompt: isBonusRound ? 'Bu turda tüm doğru dokunuşlar 2X PUAN!' : 'Seri bas, kombo çarpanını patlat!',
+      badgeText: isBonusRound ? '🔥 2X SÜPER TUR' : '⚡ HIZLI REFLEKS',
       targetKey: targetColor.name,
       cards,
       createdAt: Date.now(),
-      durationMs: 2000,
+      durationMs: 1600,
     };
   }
 }

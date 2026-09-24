@@ -113,6 +113,13 @@ export function useSocket() {
       setLastTapFeedback(null);
     });
 
+    socket.on('playerKicked', () => {
+      setCountdown(null);
+      setCurrentTask(null);
+      setResults([]);
+      setLastTapFeedback(null);
+    });
+
     socket.on('errorNotification', (msg: string) => {
       setErrorMessage(msg);
       setTimeout(() => setErrorMessage(null), 4000);

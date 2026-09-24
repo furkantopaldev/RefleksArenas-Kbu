@@ -1,6 +1,6 @@
 import React from 'react';
 import { CardItem } from '../../types';
-import { Star, Circle, Square, Triangle, Diamond, Heart, Flame } from 'lucide-react';
+import { Star, Circle, Square, Triangle, Diamond, Heart } from 'lucide-react';
 
 interface CardGridProps {
   cards: CardItem[];
@@ -45,20 +45,12 @@ export const CardGrid: React.FC<CardGridProps> = ({ cards, onTapCard, disabled =
             onClick={() => onTapCard(card.id)}
             style={{
               backgroundColor: card.bgColor,
-              borderColor: card.isBonus ? '#FBBF24' : 'rgba(255, 255, 255, 0.25)',
+              borderColor: 'rgba(255, 255, 255, 0.25)',
             }}
-            className={`party-card relative flex flex-col items-center justify-center rounded-3xl border-4 shadow-xl transition-all select-none touch-manipulation cursor-pointer p-4 ${
-              card.isBonus ? 'glow-gold scale-[1.02]' : 'hover:brightness-110 active:scale-95'
-            } ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
+            className={`party-card relative flex flex-col items-center justify-center rounded-3xl border-4 shadow-xl transition-all select-none touch-manipulation cursor-pointer p-4 hover:brightness-110 active:scale-95 ${
+              disabled ? 'opacity-70 cursor-not-allowed' : ''
+            }`}
           >
-            {/* Bonus Indicator */}
-            {card.isBonus && (
-              <div className="absolute top-2 right-2 bg-yellow-400 text-purple-950 font-black text-xs md:text-sm px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-md animate-bounce-short">
-                <Flame className="w-3.5 h-3.5 fill-red-500 text-red-500" />
-                2X BONUS
-              </div>
-            )}
-
             {/* Shape Icon */}
             {card.shape && <div className="mb-1">{renderShapeIcon(card.shape)}</div>}
 

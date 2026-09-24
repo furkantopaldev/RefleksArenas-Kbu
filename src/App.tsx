@@ -82,6 +82,29 @@ export function App() {
     setHasJoinedPlayer(true);
   };
 
+  // Auto-reset player join state when kicked, room is reset, or not in lobby players list
+  useEffect(() => {
+    if (!socket) return;
+    const handleResetOrKick = () => {
+      setHasJoinedPlayer(false);
+    };
+    socket.on('roomReset', handleResetOrKick);
+    socket.on('playerKicked', handleResetOrKick);
+    return () => {
+      socket.off('roomReset', handleResetOrKick);
+      socket.off('playerKicked', handleResetOrKick);
+    };
+  }, [socket]);
+
+  useEffect(() => {
+    if (roomData && roomData.state === 'LOBBY') {
+      const isStillInRoom = roomData.players.some((p) => p.id === socket?.id);
+      if (!isStillInRoom && hasJoinedPlayer) {
+        setHasJoinedPlayer(false);
+      }
+    }
+  }, [roomData, socket?.id, hasJoinedPlayer]);
+
   // Find current player in room data
   const myPlayer =
     roomData?.players.find((p) => p.id === socket?.id) ||

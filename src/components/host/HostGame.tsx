@@ -18,19 +18,19 @@ export const HostGame: React.FC<HostGameProps> = ({ roomData, currentTask }) => 
     switch (currentPhase) {
       case 1:
         return {
-          title: 'FAZ 1: ISINMA TURU',
+          title: 'ISINMA TURU',
           color: 'from-emerald-500 to-teal-600',
           desc: 'Temel renk ve şekil avı!',
         };
       case 2:
         return {
-          title: 'FAZ 2: STROOP & ZİHİN ÇELİŞKİSİ',
+          title: 'ZİHİN ÇELİŞKİSİ & DİKKAT',
           color: 'from-amber-500 to-orange-600',
           desc: 'Kelime anlamı ve yazı rengine dikkat et!',
         };
       case 3:
         return {
-          title: 'FAZ 3: ÇILGIN KOMBO & HIZ',
+          title: 'ÇILGIN HIZ & SÜPER KOMBO',
           color: 'from-red-500 to-pink-600',
           desc: '2X Altın hedefler ve süper kombo puanları!',
         };

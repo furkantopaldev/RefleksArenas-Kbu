@@ -95,6 +95,7 @@ export interface ServerToClientEvents {
   playerTappedFeedback: (data: { playerId: string; isCorrect: boolean; pointsDelta: number; newScore: number; combo: number }) => void;
   gameEnded: (results: PlayerResultSummary[], leaderboard: LeaderboardEntry[]) => void;
   roomReset: () => void;
+  playerKicked: () => void;
   errorNotification: (message: string) => void;
 }
 
