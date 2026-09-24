@@ -86,6 +86,30 @@ export interface NetworkInterfaceInfo {
   isWifi: boolean;
 }
 
+export interface ServerToClientEvents {
+  roomUpdated: (room: ClientRoomData) => void;
+  countdownTick: (seconds: number) => void;
+  gameStarted: () => void;
+  taskChanged: (task: GameTask) => void;
+  timerTick: (remainingSeconds: number, phase: GamePhase) => void;
+  playerTappedFeedback: (data: { playerId: string; isCorrect: boolean; pointsDelta: number; newScore: number; combo: number }) => void;
+  gameEnded: (results: PlayerResultSummary[], leaderboard: LeaderboardEntry[]) => void;
+  roomReset: () => void;
+  errorNotification: (message: string) => void;
+}
+
+export interface ClientToServerEvents {
+  joinAsHost: (data: { roomCode?: string }) => void;
+  joinAsPlayer: (data: { roomCode: string; name: string; avatar: string }) => void;
+  playerReady: (data: { roomCode: string }) => void;
+  hostStartGame: (data: { roomCode: string }) => void;
+  hostResetRoom: (data: { roomCode: string }) => void;
+  hostAddBot: (data: { roomCode: string }) => void;
+  hostRemovePlayer: (data: { roomCode: string; playerId: string }) => void;
+  hostSetJoinUrl: (data: { roomCode: string; customUrl: string }) => void;
+  playerTapCard: (data: { roomCode: string; taskId: string; cardId: string; clientTimestamp: number }) => void;
+}
+
 export interface ClientRoomData {
   code: string;
   state: RoomState;

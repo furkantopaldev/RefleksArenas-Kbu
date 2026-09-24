@@ -52,11 +52,11 @@ export function useSocket() {
       setConnected(false);
     });
 
-    socket.on('roomUpdated', (data) => {
+    socket.on('roomUpdated', (data: ClientRoomData) => {
       setRoomData(data);
     });
 
-    socket.on('countdownTick', (seconds) => {
+    socket.on('countdownTick', (seconds: number) => {
       setCountdown(seconds);
       soundEffects.playCountdown(false);
     });
@@ -67,32 +67,44 @@ export function useSocket() {
       soundEffects.playCountdown(true);
     });
 
-    socket.on('taskChanged', (task) => {
+    socket.on('taskChanged', (task: GameTask) => {
       setCurrentTask(task);
       setLastTapFeedback(null);
     });
 
-    socket.on('timerTick', (remainingSeconds, phase) => {
+    socket.on('timerTick', (remainingSeconds: number, phase: GamePhase) => {
       setRoomData((prev) =>
         prev ? { ...prev, timeRemaining: remainingSeconds, currentPhase: phase } : null
       );
     });
 
-    socket.on('playerTappedFeedback', (feedback) => {
-      setLastTapFeedback(feedback);
-      if (feedback.isCorrect) {
-        soundEffects.playSuccess(feedback.combo);
-      } else {
-        soundEffects.playError();
+    socket.on(
+      'playerTappedFeedback',
+      (feedback: {
+        playerId: string;
+        isCorrect: boolean;
+        pointsDelta: number;
+        newScore: number;
+        combo: number;
+      }) => {
+        setLastTapFeedback(feedback);
+        if (feedback.isCorrect) {
+          soundEffects.playSuccess(feedback.combo);
+        } else {
+          soundEffects.playError();
+        }
       }
-    });
+    );
 
-    socket.on('gameEnded', (finalResults, topLeaderboard) => {
-      setResults(finalResults);
-      setLeaderboard(topLeaderboard);
-      setCurrentTask(null);
-      soundEffects.playVictory();
-    });
+    socket.on(
+      'gameEnded',
+      (finalResults: PlayerResultSummary[], topLeaderboard: LeaderboardEntry[]) => {
+        setResults(finalResults);
+        setLeaderboard(topLeaderboard);
+        setCurrentTask(null);
+        soundEffects.playVictory();
+      }
+    );
 
     socket.on('roomReset', () => {
       setCountdown(null);
@@ -101,7 +113,7 @@ export function useSocket() {
       setLastTapFeedback(null);
     });
 
-    socket.on('errorNotification', (msg) => {
+    socket.on('errorNotification', (msg: string) => {
       setErrorMessage(msg);
       setTimeout(() => setErrorMessage(null), 4000);
     });
