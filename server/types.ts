@@ -44,6 +44,8 @@ export interface GameTask {
   prompt: string;
   subPrompt?: string;
   badgeText?: string;
+  highlightWord?: string;
+  highlightColor?: string;
   targetKey: string;
   cards: CardItem[];
   createdAt: number;

@@ -1,20 +1,7 @@
 import React, { useState } from 'react';
-import { Sparkles, Dice5, UserCheck, ShieldAlert } from 'lucide-react';
+import { UserCheck, ShieldAlert } from 'lucide-react';
 
 const AVATAR_OPTIONS = ['🦊', '⚡', '🐯', '🚀', '🔥', '🐼', '🦁', '🎯', '👑', '🐺', '🐉', '🌪️'];
-
-const FUN_NICKNAMES = [
-  'Hızlı Şimşek',
-  'Roket Ali',
-  'Refleks Can',
-  'Alev Ayşe',
-  'Süper Efe',
-  'Turbo Zeynep',
-  'Yıldırım Kaan',
-  'Usta Oyuncu',
-  'Kartal Göz',
-  'Atom Burak',
-];
 
 interface PlayerJoinProps {
   onJoin: (name: string, avatar: string) => void;
@@ -31,19 +18,10 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
   playerAvatar: currentAvatar,
   errorMessage,
 }) => {
-  const [name, setName] = useState(
-    FUN_NICKNAMES[Math.floor(Math.random() * FUN_NICKNAMES.length)]
-  );
+  const [name, setName] = useState(currentName || '');
   const [avatar, setAvatar] = useState(
-    AVATAR_OPTIONS[Math.floor(Math.random() * AVATAR_OPTIONS.length)]
+    currentAvatar || AVATAR_OPTIONS[Math.floor(Math.random() * AVATAR_OPTIONS.length)]
   );
-
-  const randomizeNick = () => {
-    const randomNick = FUN_NICKNAMES[Math.floor(Math.random() * FUN_NICKNAMES.length)];
-    const randomAv = AVATAR_OPTIONS[Math.floor(Math.random() * AVATAR_OPTIONS.length)];
-    setName(randomNick);
-    setAvatar(randomAv);
-  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -121,28 +99,19 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
           </div>
         </div>
 
-        {/* Nickname Input & Randomizer */}
+        {/* Nickname Input */}
         <div>
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-xs font-bold text-white/70 uppercase tracking-wider">
-              Takma Adın
-            </label>
-            <button
-              type="button"
-              onClick={randomizeNick}
-              className="text-xs text-party-yellow font-bold flex items-center gap-1 hover:underline cursor-pointer"
-            >
-              <Dice5 className="w-3.5 h-3.5" />
-              Rastgele Seç
-            </button>
-          </div>
+          <label className="block text-xs font-bold text-white/70 uppercase tracking-wider mb-2">
+            Adınız / Takma Adınız
+          </label>
           <div className="relative">
             <input
               type="text"
               maxLength={15}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Takma adın..."
+              placeholder="Adınızı girin (örn: Burak)"
+              autoFocus
               className="w-full px-4 py-3.5 rounded-2xl bg-black/40 border-2 border-white/20 text-white font-bold text-lg placeholder:text-white/30 focus:outline-none focus:border-party-yellow"
             />
           </div>

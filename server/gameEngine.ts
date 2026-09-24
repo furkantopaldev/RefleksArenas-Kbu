@@ -36,8 +36,18 @@ export const SHAPES: { name: string; type: ShapeType }[] = [
   { name: 'KALP', type: 'heart' },
 ];
 
-const BOT_NAMES = ['⚡ Şimşek Bot', '🚀 Roket Can', '🎯 Refleks Kralı', '🔥 Alev Ayşe'];
-const BOT_AVATARS = ['🦊', '🐯', '⚡', '🤖', '🐼', '🦁'];
+const BOT_NAMES = ['🤖 Refleks Bot 1', '🤖 Refleks Bot 2', '🤖 Refleks Bot 3', '🤖 Refleks Bot 4'];
+const BOT_AVATARS = ['🤖', '⚡', '🎯', '🔥', '🦁', '🦊'];
+
+// Fisher-Yates pure array shuffle to guarantee uniform random distribution
+function shuffleArray<T>(array: T[]): T[] {
+  const result = [...array];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
 
 export class GameManager {
   private io: Server<ClientToServerEvents, ServerToClientEvents>;
@@ -222,6 +232,7 @@ export class GameManager {
     socket.on('hostRemovePlayer', ({ playerId }) => {
       if (this.players.has(playerId)) {
         this.players.delete(playerId);
+        this.playerLastTapTimestamp.delete(playerId);
         this.io.to(playerId).emit('playerKicked');
         this.io.to(playerId).emit('errorNotification', 'Görevli tarafından lobiden çıkarıldınız.');
         this.broadcastRoomUpdate();
@@ -320,6 +331,7 @@ export class GameManager {
       if (socket.id === this.hostSocketId) {
         this.hostSocketId = null;
       }
+      this.playerLastTapTimestamp.delete(socket.id);
       if (this.players.has(socket.id)) {
         if (this.state === 'LOBBY') {
           this.players.delete(socket.id);
@@ -550,6 +562,7 @@ export class GameManager {
     // Clear previous players so slots are fresh and empty for the new group standing at the booth!
     this.players.clear();
     this.playerTappedForCurrentTask.clear();
+    this.playerLastTapTimestamp.clear();
 
     this.io.to(this.roomCode).emit('roomReset');
     this.broadcastRoomUpdate();
@@ -558,19 +571,20 @@ export class GameManager {
   // Task Generator: Dynamic Stroop & Refleks generator
   private generateTask(phase: GamePhase): GameTask {
     const taskId = 'task_' + Math.random().toString(36).substring(2, 9);
-    const shuffledColors = [...COLOR_PALETTE].sort(() => Math.random() - 0.5);
-    const shuffledShapes = [...SHAPES].sort(() => Math.random() - 0.5);
+    const shuffledColors = shuffleArray(COLOR_PALETTE);
+    const shuffledShapes = shuffleArray(SHAPES);
 
-    // Warm-up (4 cards, Color or Shape) - Accelerated to 2100ms
+    // Warm-up (4 cards, Color or Shape) - 2100ms
     if (phase === 1) {
       const isColorTask = Math.random() > 0.4;
 
       if (isColorTask) {
         const targetColor = shuffledColors[0];
-        const cardColors = shuffledColors.slice(0, 4).sort(() => Math.random() - 0.5);
+        const rawCardColors = shuffledColors.slice(0, 4);
+        const cardColors = shuffleArray(rawCardColors);
 
         const cards: CardItem[] = cardColors.map((c, idx) => ({
-          id: `c_${idx}_${c.name}`,
+          id: `c_${idx}_${c.name}_${Math.random().toString(36).substring(2, 5)}`,
           bgColor: c.hex,
           targetKey: c.name,
         }));
@@ -582,16 +596,17 @@ export class GameManager {
           prompt: `👉 ${targetColor.name} KARTA DOKUN!`,
           badgeText: '🎯 HEDEFİ YAKALA',
           targetKey: targetColor.name,
-          cards,
+          cards: shuffleArray(cards),
           createdAt: Date.now(),
           durationMs: 2100,
         };
       } else {
         const targetShape = shuffledShapes[0];
-        const cardShapes = shuffledShapes.slice(0, 4).sort(() => Math.random() - 0.5);
+        const rawCardShapes = shuffledShapes.slice(0, 4);
+        const cardShapes = shuffleArray(rawCardShapes);
 
         const cards: CardItem[] = cardShapes.map((s, idx) => ({
-          id: `s_${idx}_${s.type}`,
+          id: `s_${idx}_${s.type}_${Math.random().toString(36).substring(2, 5)}`,
           bgColor: shuffledColors[idx % shuffledColors.length].hex,
           shape: s.type,
           targetKey: s.type,
@@ -604,7 +619,7 @@ export class GameManager {
           prompt: `✨ ${targetShape.name} ŞEKLİNE DOKUN!`,
           badgeText: '🎯 HEDEFİ YAKALA',
           targetKey: targetShape.type,
-          cards,
+          cards: shuffleArray(cards),
           createdAt: Date.now(),
           durationMs: 2100,
         };
@@ -617,11 +632,11 @@ export class GameManager {
 
       // Mode A: Stroop Yazı Rengine Dokun (Font Color Conflict)
       if (taskVariety < 0.5) {
-        const colorA = shuffledColors[0]; // Text meaning
-        const colorB = shuffledColors[1]; // Actual ink color (target)
+        const textMeaningColor = shuffledColors[0]; // Text says e.g. "KIRMIZI"
+        const actualInkColor = shuffledColors[1];    // Font ink color is e.g. GREEN (TARGET)
 
-        const cards: CardItem[] = shuffledColors.slice(0, 6).map((c, idx) => ({
-          id: `stroop_ink_${idx}_${c.name}`,
+        const rawCards: CardItem[] = shuffledColors.slice(0, 6).map((c, idx) => ({
+          id: `stroop_ink_${idx}_${c.name}_${Math.random().toString(36).substring(2, 5)}`,
           bgColor: c.hex,
           targetKey: c.name,
         }));
@@ -631,23 +646,25 @@ export class GameManager {
           phase: 2,
           type: 'STROOP_COLOR',
           prompt: `🎨 YAZI RENGİNE DOKUN!`,
-          subPrompt: `"${colorA.name}" (Yazının rengi neyse ona bas)`,
+          highlightWord: textMeaningColor.name,
+          highlightColor: actualInkColor.hex,
+          subPrompt: `(Kelimeye aldanma, harflerin rengi neyse o karta bas!)`,
           badgeText: '🧠 ZİHİN ÇELİŞKİSİ',
-          targetKey: colorB.name,
-          cards,
+          targetKey: actualInkColor.name,
+          cards: shuffleArray(rawCards),
           createdAt: Date.now(),
           durationMs: 2000,
         };
       }
       // Mode B: Stroop Kelimenin Anlamına Dokun (Word Meaning)
       else if (taskVariety < 0.8) {
-        const colorA = shuffledColors[0]; // Target meaning
-        const colorB = shuffledColors[1]; // Ink color distraction
+        const targetMeaningColor = shuffledColors[0]; // Target meaning e.g. "SARI"
+        const decoyInkColor = shuffledColors[1];      // Distracting font color e.g. Blue
 
-        const cards: CardItem[] = shuffledColors.slice(0, 6).map((c, idx) => {
+        const rawCards: CardItem[] = shuffledColors.slice(0, 6).map((c, idx) => {
           const decoyInk = shuffledColors[(idx + 2) % shuffledColors.length].hex;
           return {
-            id: `stroop_word_${idx}_${c.name}`,
+            id: `stroop_word_${idx}_${c.name}_${Math.random().toString(36).substring(2, 5)}`,
             label: c.name,
             textColor: decoyInk,
             bgColor: '#2A265F',
@@ -660,10 +677,12 @@ export class GameManager {
           phase: 2,
           type: 'STROOP_TEXT',
           prompt: `📖 KELİME ANLAMINA DOKUN!`,
-          subPrompt: `"${colorA.name}" yazan kartı bul`,
+          highlightWord: targetMeaningColor.name,
+          highlightColor: decoyInkColor.hex,
+          subPrompt: `(Renge aldanma, "${targetMeaningColor.name}" yazan kartı bul!)`,
           badgeText: '📖 KELİME TUZAĞI',
-          targetKey: colorA.name,
-          cards,
+          targetKey: targetMeaningColor.name,
+          cards: shuffleArray(rawCards),
           createdAt: Date.now(),
           durationMs: 2000,
         };
@@ -673,41 +692,41 @@ export class GameManager {
         const forbiddenColor = shuffledColors[0];
         const validColor = shuffledColors[1];
 
-        // 6 cards: 5 forbidden colors, 1 valid color
-        const cards: CardItem[] = [
-          { id: 'c_valid', bgColor: validColor.hex, targetKey: validColor.name },
-          { id: 'c_f1', bgColor: forbiddenColor.hex, targetKey: forbiddenColor.name },
-          { id: 'c_f2', bgColor: forbiddenColor.hex, targetKey: forbiddenColor.name },
-          { id: 'c_f3', bgColor: forbiddenColor.hex, targetKey: forbiddenColor.name },
-          { id: 'c_f4', bgColor: forbiddenColor.hex, targetKey: forbiddenColor.name },
-          { id: 'c_f5', bgColor: forbiddenColor.hex, targetKey: forbiddenColor.name },
-        ].sort(() => Math.random() - 0.5);
+        // 6 cards: 5 forbidden colors, 1 valid color (fully shuffled)
+        const rawCards: CardItem[] = [
+          { id: 'c_valid_' + Math.random().toString(36).substring(2, 5), bgColor: validColor.hex, targetKey: validColor.name },
+          { id: 'c_f1_' + Math.random().toString(36).substring(2, 5), bgColor: forbiddenColor.hex, targetKey: forbiddenColor.name },
+          { id: 'c_f2_' + Math.random().toString(36).substring(2, 5), bgColor: forbiddenColor.hex, targetKey: forbiddenColor.name },
+          { id: 'c_f3_' + Math.random().toString(36).substring(2, 5), bgColor: forbiddenColor.hex, targetKey: forbiddenColor.name },
+          { id: 'c_f4_' + Math.random().toString(36).substring(2, 5), bgColor: forbiddenColor.hex, targetKey: forbiddenColor.name },
+          { id: 'c_f5_' + Math.random().toString(36).substring(2, 5), bgColor: forbiddenColor.hex, targetKey: forbiddenColor.name },
+        ];
 
         return {
           id: taskId,
           phase: 2,
           type: 'NEGATION',
           prompt: `🚫 ${forbiddenColor.name} OLMAYANA DOKUN!`,
-          subPrompt: `Farklı olan tek kartı yakala!`,
+          subPrompt: `Farklı renkteki tek kartı yakala!`,
           badgeText: '⚠️ DİKKAT TESTİ',
           targetKey: validColor.name,
-          cards,
+          cards: shuffleArray(rawCards),
           createdAt: Date.now(),
           durationMs: 1900,
         };
       }
     }
 
-    // Çılgın Kombo & Hız (6 cards, 1600ms, spoiler-free bonus round)
+    // Çılgın Kombo & Hız (6 cards, 1600ms, spoiler-free bonus round, fully shuffled positions)
     const targetColor = shuffledColors[0];
     const isBonusRound = Math.random() > 0.4;
 
-    const cards: CardItem[] = shuffledColors.slice(0, 6).map((c, idx) => {
+    const rawCards: CardItem[] = shuffledColors.slice(0, 6).map((c, idx) => {
       return {
-        id: `p3_${idx}_${c.name}`,
+        id: `p3_${idx}_${c.name}_${Math.random().toString(36).substring(2, 5)}`,
         bgColor: c.hex,
         shape: shuffledShapes[idx % shuffledShapes.length].type,
-        isBonus: false, // Clean cards without spoiling the answer!
+        isBonus: false,
         targetKey: c.name,
       };
     });
@@ -720,7 +739,7 @@ export class GameManager {
       subPrompt: isBonusRound ? 'Bu turda tüm doğru dokunuşlar 2X PUAN!' : 'Seri bas, kombo çarpanını patlat!',
       badgeText: isBonusRound ? '🔥 2X SÜPER TUR' : '⚡ HIZLI REFLEKS',
       targetKey: targetColor.name,
-      cards,
+      cards: shuffleArray(rawCards),
       createdAt: Date.now(),
       durationMs: 1600,
     };

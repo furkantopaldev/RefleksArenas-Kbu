@@ -75,6 +75,19 @@ export const HostGame: React.FC<HostGameProps> = ({ roomData, currentTask }) => 
           <h2 className="text-3xl sm:text-5xl font-black text-white tracking-wide drop-shadow-md">
             {currentTask.prompt}
           </h2>
+
+          {/* Stroop Highlight Word Box on Host screen */}
+          {currentTask.highlightWord && (
+            <div className="my-3 inline-block px-8 py-2 rounded-2xl bg-black/60 border-2 border-white/20 shadow-inner">
+              <span
+                style={{ color: currentTask.highlightColor || '#FFFFFF' }}
+                className="text-4xl sm:text-5xl font-black tracking-widest drop-shadow-lg"
+              >
+                {currentTask.highlightWord}
+              </span>
+            </div>
+          )}
+
           {currentTask.subPrompt && (
             <p className="text-base sm:text-xl font-bold text-sky-300 mt-2">
               {currentTask.subPrompt}

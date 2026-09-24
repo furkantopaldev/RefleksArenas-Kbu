@@ -115,9 +115,9 @@ export const PlayerGame: React.FC<PlayerGameProps> = ({
 
       {/* Center: Dynamic Task Header (NEVER COVERED, ALWAYS READABLE) */}
       {currentTask ? (
-        <div className="my-3 text-center bg-white/5 border-2 border-party-yellow/40 rounded-3xl p-4 shadow-xl backdrop-blur-md relative overflow-hidden">
+        <div className="my-2 text-center bg-white/5 border-2 border-party-yellow/40 rounded-3xl p-3 shadow-xl backdrop-blur-md relative overflow-hidden">
           {/* Top Row: Badge & Floating Feedback Toast */}
-          <div className="flex items-center justify-between mb-1.5 px-1">
+          <div className="flex items-center justify-between mb-1 px-1">
             <span className="text-[10px] font-black uppercase tracking-widest text-party-yellow px-2.5 py-0.5 bg-yellow-400/20 rounded-full inline-block">
               {currentTask.badgeText || 'GÖREV'}
             </span>
@@ -146,8 +146,20 @@ export const PlayerGame: React.FC<PlayerGameProps> = ({
             {currentTask.prompt}
           </h2>
 
+          {/* Stroop Highlight Word Box */}
+          {currentTask.highlightWord && (
+            <div className="my-1.5 inline-block px-6 py-1 rounded-2xl bg-black/60 border-2 border-white/20 shadow-inner">
+              <span
+                style={{ color: currentTask.highlightColor || '#FFFFFF' }}
+                className="text-3xl sm:text-4xl font-black tracking-widest drop-shadow-lg"
+              >
+                {currentTask.highlightWord}
+              </span>
+            </div>
+          )}
+
           {currentTask.subPrompt && (
-            <p className="text-xs sm:text-sm font-bold text-sky-300 mt-1">
+            <p className="text-xs sm:text-sm font-bold text-sky-300 mt-0.5">
               {currentTask.subPrompt}
             </p>
           )}
