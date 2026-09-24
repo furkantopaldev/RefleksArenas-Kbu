@@ -57,12 +57,12 @@ const networkIps = getAllNetworkInterfaces();
 const primaryHostIp = networkIps.length > 0 ? networkIps[0].ip : 'localhost';
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3001;
-const CLIENT_PORT = 5173;
+const CLIENT_PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 5173;
 
 console.log('==================================================');
 console.log('🎮 REFLEKS ARENASI BAŞLATILIYOR...');
-console.log(`💻 Stand / PC Ekranı: http://localhost:${CLIENT_PORT}`);
-console.log(`📶 Yerel IP: http://${primaryHostIp}:${CLIENT_PORT}/play`);
+console.log(`🚀 Sunucu Portu: ${PORT}`);
+console.log(`🌐 Birincil IP: ${primaryHostIp}`);
 console.log('==================================================');
 
 // Socket.io initialization with CORS
@@ -76,48 +76,6 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(server, {
 
 const gameManager = new GameManager(io, primaryHostIp, CLIENT_PORT);
 gameManager.setNetworkIps(networkIps);
-
-// Cloudflare Quick Tunnel using untun / localtunnel
-async function initCloudflareTunnel() {
-  // 1. Try Cloudflare Tunnel via untun
-  try {
-    console.log('⚡ Cloudflare Güvenli Tüneli (HTTPS) başlatılıyor...');
-    const { startTunnel } = await import('untun');
-    const tunnel = await startTunnel({ port: CLIENT_PORT });
-    const tunnelUrl = await tunnel.getURL();
-
-    if (tunnelUrl) {
-      console.log('--------------------------------------------------');
-      console.log(`🌟 CLOUDFLARE HTTPS TÜNELİ HAZIR:`);
-      console.log(`📱 ${tunnelUrl}/play`);
-      console.log(`✅ Telefonlar QR'ı okutup 4G/5G dahil her yerden anında bağlanabilir!`);
-      console.log('--------------------------------------------------');
-      gameManager.setTunnelUrl(tunnelUrl);
-      return;
-    }
-  } catch (err: unknown) {
-    const error = err as Error;
-    console.log('Cloudflare denendi, alternatif tünel kontrol ediliyor:', error.message);
-  }
-
-  // 2. Fallback to localtunnel
-  try {
-    const ltModule = await import('localtunnel');
-    const localtunnelFn = (ltModule as unknown as { default?: typeof ltModule }).default || ltModule;
-    if (typeof localtunnelFn === 'function') {
-      const lt = await (localtunnelFn as (opts: { port: number }) => Promise<{ url: string }>)({ port: CLIENT_PORT });
-      if (lt && lt.url) {
-        console.log(`🌐 Alternatif Tünel Aktif: ${lt.url}/play`);
-        gameManager.setTunnelUrl(lt.url);
-      }
-    }
-  } catch {
-    console.log('ℹ️ Bulut tüneli açılamadı, yerel ağ IP üzerinden çalışılıyor.');
-  }
-}
-
-// Launch tunnel in background
-initCloudflareTunnel();
 
 // REST API Endpoints
 app.get('/api/info', (req, res) => {
@@ -133,10 +91,11 @@ app.get('/api/leaderboard', (req, res) => {
   res.json(leaderboardManager.getTopEntries(10));
 });
 
-// Serve frontend dist in production if built
+// Serve frontend dist in production (when built on Render/Cloud)
 const distPath = path.join(process.cwd(), 'dist');
 app.use(express.static(distPath));
 
+// Fallback to index.html for client-side routing (/play, /host, etc.)
 app.get('*', (req, res, next) => {
   if (req.url.startsWith('/api') || req.url.startsWith('/socket.io')) {
     return next();
@@ -155,5 +114,5 @@ io.on('connection', (socket) => {
 });
 
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Socket Sunucusu 0.0.0.0:${PORT} adresinde dinlemede!`);
+  console.log(`🚀 Refleks Arenası 0.0.0.0:${PORT} adresinde yayında!`);
 });

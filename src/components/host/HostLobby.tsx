@@ -36,8 +36,17 @@ export const HostLobby: React.FC<HostLobbyProps> = ({
   const [customInputUrl, setCustomInputUrl] = useState(roomData.customUrl || '');
   const [copied, setCopied] = useState(false);
 
-  // Active Join URL from server or roomData
-  const activeJoinUrl = roomData.joinUrl || `http://${roomData.hostIp}:${roomData.port}/play`;
+  // Determine live join URL (prioritizes active cloud origin if hosted online)
+  const isLocal =
+    window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const liveOriginUrl = !isLocal ? `${window.location.origin}/play` : null;
+
+  const activeJoinUrl =
+    roomData.customUrl ||
+    liveOriginUrl ||
+    roomData.tunnelUrl ||
+    roomData.joinUrl ||
+    `http://${roomData.hostIp}:${roomData.port}/play`;
   const isHttps = activeJoinUrl.startsWith('https://');
 
   // Generate QR Code dynamically whenever activeJoinUrl changes
