@@ -38,15 +38,24 @@ export const HostLobby: React.FC<HostLobbyProps> = ({
 
   // Determine live join URL (prioritizes active cloud origin if hosted online)
   const isLocal =
-    window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1' ||
+    window.location.hostname.startsWith('192.168.') ||
+    window.location.hostname.startsWith('10.') ||
+    window.location.hostname.startsWith('172.');
+
   const liveOriginUrl = !isLocal ? `${window.location.origin}/play` : null;
 
   const activeJoinUrl =
-    roomData.customUrl ||
     liveOriginUrl ||
-    roomData.tunnelUrl ||
-    roomData.joinUrl ||
-    `http://${roomData.hostIp}:${roomData.port}/play`;
+    (roomData.customUrl
+      ? (roomData.customUrl.endsWith('/play') ? roomData.customUrl : `${roomData.customUrl}/play`)
+      : null) ||
+    (roomData.tunnelUrl ? `${roomData.tunnelUrl.replace(/\/+$/, '')}/play` : null) ||
+    (roomData.joinUrl && !roomData.joinUrl.includes('10.30.') && !roomData.joinUrl.includes(':10000')
+      ? roomData.joinUrl
+      : null) ||
+    `${window.location.protocol}//${roomData.hostIp}:${roomData.port}/play`;
   const isHttps = activeJoinUrl.startsWith('https://');
 
   // Generate QR Code dynamically whenever activeJoinUrl changes
@@ -104,13 +113,13 @@ export const HostLobby: React.FC<HostLobbyProps> = ({
           <div className="flex items-center gap-2 mb-3">
             <span
               className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-black text-xs uppercase tracking-wider shadow-md ${
-                isHttps
+                !isLocal || isHttps
                   ? 'bg-emerald-400 text-purple-950 glow-yellow'
                   : 'bg-party-yellow text-purple-950'
               }`}
             >
-              {isHttps ? <Globe className="w-3.5 h-3.5" /> : <Wifi className="w-3.5 h-3.5" />}
-              {isHttps ? '🌐 Genel HTTPS Tüneli' : '📶 Yerel Ağ (Wi-Fi)'}
+              {!isLocal || isHttps ? <Globe className="w-3.5 h-3.5" /> : <Wifi className="w-3.5 h-3.5" />}
+              {!isLocal || isHttps ? '🌐 Genel İnternet (Canlı Domain)' : '📶 Yerel Ağ (Wi-Fi)'}
             </span>
 
             <button
@@ -183,14 +192,24 @@ export const HostLobby: React.FC<HostLobbyProps> = ({
                 </button>
               </div>
 
+              {/* Live Cloud Domain Option if on live domain */}
+              {!isLocal && (
+                <button
+                  onClick={() => onSetJoinUrl(`${window.location.origin}/play`)}
+                  className="w-full text-left px-3 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-300 text-xs font-bold flex items-center justify-between cursor-pointer"
+                >
+                  <span>🌐 Render Bulut Sunucusu (Genel İnternet)</span>
+                  <span className="text-[10px] text-emerald-200">Aktif</span>
+                </button>
+              )}
+
               {/* Tunnel Option if available */}
               {roomData.tunnelUrl && (
                 <button
                   onClick={handleSelectTunnel}
-                  className="w-full text-left px-3 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-300 text-xs font-bold flex items-center justify-between cursor-pointer"
+                  className="w-full text-left px-3 py-2 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 border border-purple-400/40 text-purple-300 text-xs font-bold flex items-center justify-between cursor-pointer"
                 >
-                  <span>🌐 Genel Bulut Tüneli (HTTPS)</span>
-                  <span className="text-[10px] text-emerald-200">Tavsiye Edilen</span>
+                  <span>🌐 Alternatif Bulut Tüneli</span>
                 </button>
               )}
 

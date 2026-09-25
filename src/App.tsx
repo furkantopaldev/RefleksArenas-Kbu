@@ -56,6 +56,16 @@ export function App() {
     if (roomData) return roomData;
     const host = window.location.hostname || 'localhost';
     const port = window.location.port ? parseInt(window.location.port, 10) : 5173;
+    const isLocal =
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host.startsWith('192.168.') ||
+      host.startsWith('10.') ||
+      host.startsWith('172.');
+    const computedJoinUrl = !isLocal
+      ? `${window.location.origin}/play`
+      : `${window.location.protocol}//${host}${window.location.port ? ':' + window.location.port : ''}/play`;
+
     return {
       code: 'ARENA',
       state: 'LOBBY',
@@ -64,7 +74,8 @@ export function App() {
       timeRemaining: 60,
       hostIp: host,
       port: port,
-      joinUrl: `${window.location.protocol}//${host}${window.location.port ? ':' + window.location.port : ''}/play`,
+      joinUrl: computedJoinUrl,
+      customUrl: !isLocal ? `${window.location.origin}/play` : undefined,
       networkIps: [{ name: 'Wi-Fi / Yerel', ip: host, isWifi: true }],
       settings: {
         totalDurationSeconds: 60,

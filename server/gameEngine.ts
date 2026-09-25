@@ -142,6 +142,22 @@ export class GameManager {
     // Join As Host
     socket.on('joinAsHost', () => {
       this.hostSocketId = socket.id;
+
+      // Auto-detect public host from socket handshake headers if available and not local
+      const reqHost = socket.handshake?.headers?.host;
+      if (
+        reqHost &&
+        !reqHost.includes('localhost') &&
+        !reqHost.startsWith('127.') &&
+        !reqHost.startsWith('192.168.') &&
+        !reqHost.startsWith('10.') &&
+        !reqHost.startsWith('172.') &&
+        !this.customUrl
+      ) {
+        const proto = socket.handshake?.headers?.['x-forwarded-proto'] || 'https';
+        this.customUrl = `${proto}://${reqHost}`;
+      }
+
       socket.join(this.roomCode);
       socket.emit('roomUpdated', this.getClientRoomData());
     });

@@ -77,6 +77,13 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(server, {
 const gameManager = new GameManager(io, primaryHostIp, CLIENT_PORT);
 gameManager.setNetworkIps(networkIps);
 
+// Auto-detect Render external URL or environment domain
+const RENDER_EXTERNAL_URL = process.env.RENDER_EXTERNAL_URL || process.env.PUBLIC_URL;
+if (RENDER_EXTERNAL_URL) {
+  console.log(`🌐 Render Canlı Domain Otomatik Bağlandı: ${RENDER_EXTERNAL_URL}`);
+  gameManager.setCustomUrl(RENDER_EXTERNAL_URL);
+}
+
 // REST API Endpoints
 app.get('/api/info', (req, res) => {
   res.json({
