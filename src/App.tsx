@@ -225,39 +225,23 @@ export function App() {
         </main>
       )}
 
-      {/* Bottom Switcher / Mode Bar */}
-      <footer className="w-full py-2 px-4 bg-black/50 border-t border-white/5 flex items-center justify-between text-xs text-white/50">
-        <div className="flex items-center gap-2">
-          <span
-            className={`w-2 h-2 rounded-full ${
-              connected ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'
-            }`}
-          />
-          <span>{connected ? 'Sunucuya Bağlı' : 'Bağlanıyor...'}</span>
-        </div>
+      {/* Bottom Status Bar - Only shown on PC/Stand screen, hidden on mobile phones */}
+      {!isPlayerMode && (
+        <footer className="w-full py-2 px-4 bg-black/50 border-t border-white/5 flex items-center justify-between text-xs text-white/50">
+          <div className="flex items-center gap-2">
+            <span
+              className={`w-2 h-2 rounded-full ${
+                connected ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'
+              }`}
+            />
+            <span>{connected ? 'Stand Sunucusuna Bağlı' : 'Bağlanıyor...'}</span>
+          </div>
 
-        {/* Quick view switch for demo/testing */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => toggleMode(false)}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-              !isPlayerMode ? 'bg-party-yellow text-purple-950 font-bold' : 'hover:text-white'
-            }`}
-          >
-            <Monitor className="w-3.5 h-3.5" />
-            PC / Stand
-          </button>
-          <button
-            onClick={() => toggleMode(true)}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-              isPlayerMode ? 'bg-party-yellow text-purple-950 font-bold' : 'hover:text-white'
-            }`}
-          >
-            <Smartphone className="w-3.5 h-3.5" />
-            Telefon Modu
-          </button>
-        </div>
-      </footer>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-white/40">🖥️ Stand / Sunucu Ekranı</span>
+          </div>
+        </footer>
+      )}
     </div>
   );
 }

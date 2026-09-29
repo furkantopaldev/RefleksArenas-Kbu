@@ -32,7 +32,7 @@ export const HostGame: React.FC<HostGameProps> = ({ roomData, currentTask }) => 
         return {
           title: 'ÇILGIN HIZ & SÜPER KOMBO',
           color: 'from-red-500 to-pink-600',
-          desc: '2X Altın hedefler ve süper kombo puanları!',
+          desc: '2X Altın hedefler, karışık renk & şekil avı!',
         };
       default:
         return { title: 'ARENA', color: 'from-blue-500 to-purple-600', desc: '' };

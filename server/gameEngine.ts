@@ -642,7 +642,7 @@ export class GameManager {
       }
     }
 
-    // Stroop Zihin Çelişkisi & Dikkat (6 cards) - 2000ms
+    // Stroop Zihin Çelişkisi & Dikkat (6 cards) - 2600ms (okuma ve düşünme için artırılmış süre)
     if (phase === 2) {
       const taskVariety = Math.random();
 
@@ -669,7 +669,7 @@ export class GameManager {
           targetKey: actualInkColor.name,
           cards: shuffleArray(rawCards),
           createdAt: Date.now(),
-          durationMs: 2000,
+          durationMs: 2600,
         };
       }
       // Mode B: Stroop Kelimenin Anlamına Dokun (Word Meaning)
@@ -700,7 +700,7 @@ export class GameManager {
           targetKey: targetMeaningColor.name,
           cards: shuffleArray(rawCards),
           createdAt: Date.now(),
-          durationMs: 2000,
+          durationMs: 2600,
         };
       }
       // Mode C: Negatif / Olmayan Renk
@@ -728,36 +728,61 @@ export class GameManager {
           targetKey: validColor.name,
           cards: shuffleArray(rawCards),
           createdAt: Date.now(),
-          durationMs: 1900,
+          durationMs: 2400,
         };
       }
     }
 
-    // Çılgın Kombo & Hız (6 cards, 1600ms, spoiler-free bonus round, fully shuffled positions)
-    const targetColor = shuffledColors[0];
+    // Çılgın Kombo & Hız (6 cards, 1800ms, hem renk hem şekil avı!)
     const isBonusRound = Math.random() > 0.4;
+    const isShapeTask = Math.random() > 0.5;
 
-    const rawCards: CardItem[] = shuffledColors.slice(0, 6).map((c, idx) => {
+    // Şekil Sorusu (Kafaları karıştırmak için bazen şekil, bazen renk)
+    if (isShapeTask) {
+      const targetShape = shuffledShapes[0];
+      const rawCards: CardItem[] = shuffledShapes.slice(0, 6).map((s, idx) => ({
+        id: `p3_shp_${idx}_${s.type}_${Math.random().toString(36).substring(2, 5)}`,
+        bgColor: shuffledColors[idx % shuffledColors.length].hex,
+        shape: s.type,
+        isBonus: false,
+        targetKey: s.type,
+      }));
+
       return {
-        id: `p3_${idx}_${c.name}_${Math.random().toString(36).substring(2, 5)}`,
+        id: taskId,
+        phase: 3,
+        type: 'SHAPE',
+        prompt: isBonusRound ? `🔥 2X ALTIN ŞEKİL: ${targetShape.name}!` : `✨ HIZLI ŞEKİL: ${targetShape.name}!`,
+        subPrompt: isBonusRound ? `Renge aldanma, 2X puan için ${targetShape.name} şekline bas!` : `Renge aldanma, ${targetShape.name} şekline bas!`,
+        badgeText: isBonusRound ? '🔥 2X SÜPER ŞEKİL' : '✨ ŞEKİL REFLEKSİ',
+        targetKey: targetShape.type,
+        cards: shuffleArray(rawCards),
+        createdAt: Date.now(),
+        durationMs: 1800,
+      };
+    } else {
+      // Renk Sorusu
+      const targetColor = shuffledColors[0];
+      const rawCards: CardItem[] = shuffledColors.slice(0, 6).map((c, idx) => ({
+        id: `p3_col_${idx}_${c.name}_${Math.random().toString(36).substring(2, 5)}`,
         bgColor: c.hex,
         shape: shuffledShapes[idx % shuffledShapes.length].type,
         isBonus: false,
         targetKey: c.name,
-      };
-    });
+      }));
 
-    return {
-      id: taskId,
-      phase: 3,
-      type: 'COLOR',
-      prompt: isBonusRound ? `🔥 2X ALTIN TUR: ${targetColor.name}!` : `⚡ HIZLI BAS: ${targetColor.name}!`,
-      subPrompt: isBonusRound ? 'Bu turda tüm doğru dokunuşlar 2X PUAN!' : 'Seri bas, kombo çarpanını patlat!',
-      badgeText: isBonusRound ? '🔥 2X SÜPER TUR' : '⚡ HIZLI REFLEKS',
-      targetKey: targetColor.name,
-      cards: shuffleArray(rawCards),
-      createdAt: Date.now(),
-      durationMs: 1600,
-    };
+      return {
+        id: taskId,
+        phase: 3,
+        type: 'COLOR',
+        prompt: isBonusRound ? `🔥 2X ALTIN RENK: ${targetColor.name}!` : `⚡ HIZLI RENK: ${targetColor.name}!`,
+        subPrompt: isBonusRound ? `Şekle aldanma, 2X puan için ${targetColor.name} renge bas!` : `Şekle aldanma, ${targetColor.name} renge bas!`,
+        badgeText: isBonusRound ? '🔥 2X SÜPER RENK' : '⚡ RENK REFLEKSİ',
+        targetKey: targetColor.name,
+        cards: shuffleArray(rawCards),
+        createdAt: Date.now(),
+        durationMs: 1800,
+      };
+    }
   }
 }
