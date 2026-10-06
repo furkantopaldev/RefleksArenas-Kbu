@@ -36,7 +36,11 @@ export const SHAPES: { name: string; type: ShapeType }[] = [
   { name: 'KALP', type: 'heart' },
 ];
 
-const BOT_NAMES = ['🤖 Refleks Bot 1', '🤖 Refleks Bot 2', '🤖 Refleks Bot 3', '🤖 Refleks Bot 4'];
+// Optional: when set, only a host screen opened with this key may control the room
+const HOST_KEY = process.env.HOST_KEY || '';
+const RECONNECT_GRACE_MS = 30000;
+
+const BOT_NAMES =['🤖 Refleks Bot 1', '🤖 Refleks Bot 2', '🤖 Refleks Bot 3', '🤖 Refleks Bot 4'];
 const BOT_AVATARS = ['🤖', '⚡', '🎯', '🔥', '🦁', '🦊'];
 
 // Fisher-Yates pure array shuffle to guarantee uniform random distribution
@@ -77,6 +81,12 @@ export class GameManager {
   private botIntervals: NodeJS.Timeout[] = [];
   private playerTappedForCurrentTask: Set<string> = new Set();
   private playerLastTapTimestamp: Map<string, number> = new Map();
+
+  // Reconnect support: tokens never leave the server (Player objects are broadcast to everyone)
+  private tokenToId: Map<string, string> = new Map();
+  private idToToken: Map<string, string> = new Map();
+  private graceTimers: Map<string, NodeJS.Timeout> = new Map();
+  private lastResults: PlayerResultSummary[] | null = null;
 
   constructor(io: Server<ClientToServerEvents, ServerToClientEvents>, hostIp: string, port: number) {
     this.io = io;
@@ -137,50 +147,149 @@ export class GameManager {
     this.io.to(this.roomCode).emit('roomUpdated', this.getClientRoomData());
   }
 
+  // Re-key a player to a new socket id after a reconnect (mobile network switch, screen lock...)
+  private rebindPlayer(oldId: string, newId: string) {
+    const p = this.players.get(oldId);
+    if (!p) return;
+    this.players.delete(oldId);
+    p.id = newId;
+    p.connected = true;
+    this.players.set(newId, p);
+
+    const token = this.idToToken.get(oldId);
+    if (token) {
+      this.idToToken.delete(oldId);
+      this.idToToken.set(newId, token);
+      this.tokenToId.set(token, newId);
+    }
+    if (this.playerTappedForCurrentTask.delete(oldId)) this.playerTappedForCurrentTask.add(newId);
+    this.playerLastTapTimestamp.delete(oldId);
+    const grace = this.graceTimers.get(oldId);
+    if (grace) {
+      clearTimeout(grace);
+      this.graceTimers.delete(oldId);
+    }
+  }
+
+  private dropPlayer(id: string) {
+    this.players.delete(id);
+    const token = this.idToToken.get(id);
+    if (token) this.tokenToId.delete(token);
+    this.idToToken.delete(id);
+    this.playerLastTapTimestamp.delete(id);
+    this.playerTappedForCurrentTask.delete(id);
+    const grace = this.graceTimers.get(id);
+    if (grace) clearTimeout(grace);
+    this.graceTimers.delete(id);
+  }
+
+  // Everyone who is still connected has answered correctly
+  private allConnectedSolved(): boolean {
+    for (const p of this.players.values()) {
+      if (p.connected && !this.playerTappedForCurrentTask.has(p.id)) return false;
+    }
+    return true;
+  }
+
+  private scheduleAdvance(delayMs: number) {
+    if (this.taskTimeout) clearTimeout(this.taskTimeout);
+    this.taskTimeout = setTimeout(() => {
+      if (this.state === 'PLAYING') this.nextTask();
+    }, delayMs);
+  }
+
   // Socket Connections
   public handleConnection(socket: Socket<ClientToServerEvents, ServerToClientEvents>) {
-    // Join As Host
-    socket.on('joinAsHost', () => {
-      this.hostSocketId = socket.id;
-
-      // Auto-detect public host from socket handshake headers if available and not local
-      const reqHost = socket.handshake?.headers?.host;
-      if (
-        reqHost &&
-        !reqHost.includes('localhost') &&
-        !reqHost.startsWith('127.') &&
-        !reqHost.startsWith('192.168.') &&
-        !reqHost.startsWith('10.') &&
-        !reqHost.startsWith('172.') &&
-        !this.customUrl
-      ) {
-        const proto = socket.handshake?.headers?.['x-forwarded-proto'] || 'https';
-        this.customUrl = `${proto}://${reqHost}`;
+    // Flood protection: drop clients sending more than 40 events per second
+    let windowStart = Date.now();
+    let windowCount = 0;
+    socket.use((_packet, next) => {
+      const now = Date.now();
+      if (now - windowStart > 1000) {
+        windowStart = now;
+        windowCount = 0;
       }
+      windowCount += 1;
+      if (windowCount > 40) return; // silently drop
+      next();
+    });
 
+    // Wrap every handler: malformed payloads must never crash the process
+    const on = <E extends keyof ClientToServerEvents>(event: E, handler: (data: any, ack?: any) => void) => {
+      (socket as any).on(event, (data: unknown, ack?: unknown) => {
+        try {
+          const payload = data && typeof data === 'object' ? data : {};
+          handler(payload, typeof ack === 'function' ? ack : undefined);
+        } catch (err) {
+          console.error(`[socket] handler error in ${String(event)}:`, err);
+        }
+      });
+    };
+    const isHost = () => socket.data.isHost === true;
+
+    // Join As Host
+    on('joinAsHost', (data: { key?: string }) => {
+      if (HOST_KEY && data.key !== HOST_KEY) {
+        socket.emit('errorNotification', 'Görevli anahtarı hatalı.');
+        return;
+      }
+      socket.data.isHost = true;
+      this.hostSocketId = socket.id;
       socket.join(this.roomCode);
       socket.emit('roomUpdated', this.getClientRoomData());
     });
 
+    // Reconnect: a phone that lost its socket reclaims its seat with its token
+    on('rejoinPlayer', (data: { token?: string }, ack?: (ok: boolean) => void) => {
+      const token = typeof data.token === 'string' ? data.token.slice(0, 64) : '';
+      const oldId = token ? this.tokenToId.get(token) : undefined;
+      if (!oldId || !this.players.has(oldId)) {
+        ack?.(false);
+        return;
+      }
+      this.rebindPlayer(oldId, socket.id);
+      socket.join(this.roomCode);
+      ack?.(true);
+      socket.emit('roomUpdated', this.getClientRoomData());
+      if (this.state === 'PLAYING' && this.currentTask) socket.emit('taskChanged', this.currentTask);
+      if (this.state === 'ENDED' && this.lastResults) {
+        socket.emit('gameEnded', this.lastResults, leaderboardManager.getTopEntries(10));
+      }
+      this.broadcastRoomUpdate();
+    });
+
     // Join As Player
-    socket.on('joinAsPlayer', ({ name, avatar }) => {
-      // Check if already in lobby and full (max 4 players)
-      const humanCount = Array.from(this.players.values()).filter(p => !p.isBot).length;
-      if (this.players.size >= 4 && !this.players.has(socket.id)) {
+    on('joinAsPlayer', (data: { name?: unknown; avatar?: unknown; token?: unknown }) => {
+      const existing = this.players.get(socket.id);
+      if (this.players.size >= 4 && !existing) {
         socket.emit('errorNotification', 'Oda dolu! Maksimum 4 oyuncu katılabilir.');
         return;
       }
 
-      if (this.state === 'PLAYING' || this.state === 'COUNTDOWN') {
-        socket.emit('errorNotification', 'Oyun şu an devam ediyor. Lütfen turun bitmesini bekleyin.');
+      if (this.state !== 'LOBBY') {
+        socket.emit(
+          'errorNotification',
+          this.state === 'ENDED'
+            ? 'Tur bitti. Görevli yeni turu başlatınca tekrar katılabilirsiniz.'
+            : 'Oyun şu an devam ediyor. Lütfen turun bitmesini bekleyin.'
+        );
         return;
       }
 
-      const cleanName = (name || 'Oyuncu ' + (this.players.size + 1)).trim().substring(0, 15);
+      // Names: max 15 chars, no markup / control characters
+      const rawName = typeof data.name === 'string' ? data.name : '';
+      const cleanName =
+        rawName.replace(/[<>\u0000-\u001F\u007F]/g, '').trim().substring(0, 15) ||
+        'Oyuncu ' + (this.players.size + 1);
+      // Avatars: at most 2 characters (one emoji)
+      const rawAvatar = typeof data.avatar === 'string' ? data.avatar : '';
+      const cleanAvatar = Array.from(rawAvatar).slice(0, 8).join('') || '⚡';
+      const token = typeof data.token === 'string' ? data.token.slice(0, 64) : '';
+
       const player: Player = {
         id: socket.id,
         name: cleanName,
-        avatar: avatar || '⚡',
+        avatar: cleanAvatar,
         score: 0,
         combo: 0,
         maxCombo: 0,
@@ -192,6 +301,10 @@ export class GameManager {
       };
 
       this.players.set(socket.id, player);
+      if (token) {
+        this.idToToken.set(socket.id, token);
+        this.tokenToId.set(token, socket.id);
+      }
       socket.join(this.roomCode);
       this.broadcastRoomUpdate();
 
@@ -202,19 +315,22 @@ export class GameManager {
     });
 
     // Host manually starts game
-    socket.on('hostStartGame', () => {
+    on('hostStartGame', () => {
+      if (!isHost()) return;
       if (this.state === 'LOBBY') {
         this.startCountdown();
       }
     });
 
     // Host resets room
-    socket.on('hostResetRoom', () => {
+    on('hostResetRoom', () => {
+      if (!isHost()) return;
       this.resetGame();
     });
 
     // Host adds a bot for testing / empty slots
-    socket.on('hostAddBot', () => {
+    on('hostAddBot', () => {
+      if (!isHost()) return;
       if (this.state !== 'LOBBY' || this.players.size >= 4) return;
       const botId = 'bot_' + Math.random().toString(36).substring(2, 7);
       const botIndex = Array.from(this.players.values()).filter(p => p.isBot).length;
@@ -245,10 +361,10 @@ export class GameManager {
     });
 
     // Host removes a player
-    socket.on('hostRemovePlayer', ({ playerId }) => {
+    on('hostRemovePlayer', ({ playerId }: { playerId?: unknown }) => {
+      if (!isHost() || typeof playerId !== 'string') return;
       if (this.players.has(playerId)) {
-        this.players.delete(playerId);
-        this.playerLastTapTimestamp.delete(playerId);
+        this.dropPlayer(playerId);
         this.io.to(playerId).emit('playerKicked');
         this.io.to(playerId).emit('errorNotification', 'Görevli tarafından lobiden çıkarıldınız.');
         this.broadcastRoomUpdate();
@@ -256,12 +372,16 @@ export class GameManager {
     });
 
     // Host sets custom join URL
-    socket.on('hostSetJoinUrl', ({ customUrl }) => {
-      this.setCustomUrl(customUrl);
+    on('hostSetJoinUrl', ({ customUrl }: { customUrl?: unknown }) => {
+      if (!isHost() || typeof customUrl !== 'string') return;
+      const trimmed = customUrl.trim().slice(0, 300);
+      if (trimmed && !/^https?:\/\//i.test(trimmed)) return;
+      this.setCustomUrl(trimmed || null);
     });
 
     // Player taps a card
-    socket.on('playerTapCard', ({ taskId, cardId, clientTimestamp }) => {
+    on('playerTapCard', ({ taskId, cardId }: { taskId?: unknown; cardId?: unknown }) => {
+      if (typeof taskId !== 'string' || typeof cardId !== 'string') return;
       if (this.state !== 'PLAYING' || !this.currentTask || this.currentTask.id !== taskId) {
         return;
       }
@@ -335,11 +455,8 @@ export class GameManager {
 
       this.broadcastRoomUpdate();
 
-      // If all active players have solved correctly, advance to next task quickly
-      if (this.playerTappedForCurrentTask.size >= this.players.size) {
-        if (this.taskTimeout) clearTimeout(this.taskTimeout);
-        setTimeout(() => this.nextTask(), 150);
-      }
+      // If all connected players have solved correctly, advance to next task quickly
+      if (this.allConnectedSolved()) this.scheduleAdvance(150);
     });
 
     // Handle Disconnect
@@ -348,21 +465,40 @@ export class GameManager {
         this.hostSocketId = null;
       }
       this.playerLastTapTimestamp.delete(socket.id);
-      if (this.players.has(socket.id)) {
-        if (this.state === 'LOBBY') {
-          this.players.delete(socket.id);
-        } else {
-          const p = this.players.get(socket.id)!;
-          p.connected = false;
-        }
-        this.broadcastRoomUpdate();
+      const p = this.players.get(socket.id);
+      if (!p) return;
+      p.connected = false;
+      if (this.state === 'LOBBY') {
+        // Grace period: a phone that switches network / locks its screen can reclaim its seat
+        const id = socket.id;
+        this.graceTimers.set(
+          id,
+          setTimeout(() => {
+            const cur = this.players.get(id);
+            if (cur && !cur.connected && this.state === 'LOBBY') {
+              this.dropPlayer(id);
+              this.broadcastRoomUpdate();
+            }
+          }, RECONNECT_GRACE_MS)
+        );
+      } else if (this.state === 'PLAYING' && this.allConnectedSolved()) {
+        this.scheduleAdvance(150);
       }
+      this.broadcastRoomUpdate();
     });
   }
 
   // Start 3-2-1 Countdown
   private startCountdown() {
     if (this.state !== 'LOBBY') return;
+    // Seats whose phone never came back should not play
+    for (const p of Array.from(this.players.values())) {
+      if (!p.connected) this.dropPlayer(p.id);
+    }
+    if (this.players.size === 0) {
+      this.broadcastRoomUpdate();
+      return;
+    }
     this.state = 'COUNTDOWN';
     let count = 3;
     this.io.to(this.roomCode).emit('countdownTick', count);
@@ -441,12 +577,7 @@ export class GameManager {
     this.simulateBotsForTask(task);
 
     // Schedule auto advance if nobody taps
-    if (this.taskTimeout) clearTimeout(this.taskTimeout);
-    this.taskTimeout = setTimeout(() => {
-      if (this.state === 'PLAYING') {
-        this.nextTask();
-      }
-    }, task.durationMs);
+    this.scheduleAdvance(task.durationMs);
   }
 
   // Simulate Bot Responses
@@ -495,10 +626,7 @@ export class GameManager {
 
         this.broadcastRoomUpdate();
 
-        if (this.playerTappedForCurrentTask.size >= this.players.size) {
-          if (this.taskTimeout) clearTimeout(this.taskTimeout);
-          setTimeout(() => this.nextTask(), 250);
-        }
+        if (this.allConnectedSolved()) this.scheduleAdvance(250);
       }, delay);
 
       this.botIntervals.push(timer);
@@ -558,6 +686,7 @@ export class GameManager {
       });
     }
 
+    this.lastResults = results;
     const topLeaderboard = leaderboardManager.getTopEntries(10);
     this.io.to(this.roomCode).emit('gameEnded', results, topLeaderboard);
     this.broadcastRoomUpdate();
@@ -579,6 +708,11 @@ export class GameManager {
     this.players.clear();
     this.playerTappedForCurrentTask.clear();
     this.playerLastTapTimestamp.clear();
+    this.tokenToId.clear();
+    this.idToToken.clear();
+    this.graceTimers.forEach((t) => clearTimeout(t));
+    this.graceTimers.clear();
+    this.lastResults = null;
 
     this.io.to(this.roomCode).emit('roomReset');
     this.broadcastRoomUpdate();

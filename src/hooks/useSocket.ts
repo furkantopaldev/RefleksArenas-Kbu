@@ -11,6 +11,28 @@ import {
 } from '../types';
 import { soundEffects } from '../audio/soundEffects';
 
+const TOKEN_KEY = 'refleks_player_token';
+let memoryToken = '';
+
+// Per-phone secret used to reclaim the seat after a reconnect (never shown to other players)
+function getPlayerToken(): string {
+  try {
+    let t = sessionStorage.getItem(TOKEN_KEY);
+    if (!t) {
+      t = Math.random().toString(36).slice(2) + Date.now().toString(36);
+      sessionStorage.setItem(TOKEN_KEY, t);
+    }
+    return t;
+  } catch {
+    if (!memoryToken) memoryToken = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    return memoryToken;
+  }
+}
+
+function getHostKey(): string | undefined {
+  return new URLSearchParams(window.location.search).get('key') || undefined;
+}
+
 export function useSocket() {
   const socketRef = useRef<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null);
   const [connected, setConnected] = useState(false);
@@ -26,6 +48,7 @@ export function useSocket() {
     combo: number;
   } | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [rejoinEvent, setRejoinEvent] = useState<{ ok: boolean; n: number } | null>(null);
 
   useEffect(() => {
     // Socket URL: connect to backend server on port 3001 or current host
@@ -44,8 +67,14 @@ export function useSocket() {
 
     socket.on('connect', () => {
       setConnected(true);
-      // Automatically request host room data upon connect
-      socket.emit('joinAsHost', {});
+      // Phones: try to reclaim the previous seat (network switch, screen lock, server blip)
+      const isPlayerPath =
+        window.location.pathname.startsWith('/play') || window.location.search.includes('mode=player');
+      if (isPlayerPath) {
+        socket.emit('rejoinPlayer', { token: getPlayerToken() }, (ok: boolean) => {
+          setRejoinEvent((prev) => ({ ok, n: (prev?.n ?? 0) + 1 }));
+        });
+      }
     });
 
     socket.on('disconnect', () => {
@@ -131,11 +160,11 @@ export function useSocket() {
   }, []);
 
   const joinAsHost = useCallback(() => {
-    socketRef.current?.emit('joinAsHost', {});
+    socketRef.current?.emit('joinAsHost', { key: getHostKey() });
   }, []);
 
   const joinAsPlayer = useCallback((name: string, avatar: string) => {
-    socketRef.current?.emit('joinAsPlayer', { roomCode: 'ARENA', name, avatar });
+    socketRef.current?.emit('joinAsPlayer', { roomCode: 'ARENA', name, avatar, token: getPlayerToken() });
   }, []);
 
   const hostStartGame = useCallback(() => {
@@ -177,6 +206,7 @@ export function useSocket() {
     leaderboard,
     lastTapFeedback,
     errorMessage,
+    rejoinEvent,
     joinAsHost,
     joinAsPlayer,
     hostStartGame,

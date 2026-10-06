@@ -23,6 +23,7 @@ export function App() {
     leaderboard,
     lastTapFeedback,
     errorMessage,
+    rejoinEvent,
     joinAsHost,
     joinAsPlayer,
     hostStartGame,
@@ -92,6 +93,16 @@ export function App() {
     joinAsPlayer(name, avatar);
     setHasJoinedPlayer(true);
   };
+
+  // After a reconnect the server tells us whether our seat was restored
+  useEffect(() => {
+    if (!rejoinEvent) return;
+    if (rejoinEvent.ok) {
+      setHasJoinedPlayer(true);
+    } else {
+      setHasJoinedPlayer(false);
+    }
+  }, [rejoinEvent]);
 
   // Auto-reset player join state when kicked, room is reset, or not in lobby players list
   useEffect(() => {

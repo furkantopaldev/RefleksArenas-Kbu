@@ -102,8 +102,9 @@ export interface NetworkInterfaceInfo {
 }
 
 export interface ClientToServerEvents {
-  joinAsHost: (data: { roomCode?: string }) => void;
-  joinAsPlayer: (data: { roomCode: string; name: string; avatar: string }) => void;
+  joinAsHost: (data: { roomCode?: string; key?: string }) => void;
+  rejoinPlayer: (data: { token: string }, ack: (ok: boolean) => void) => void;
+  joinAsPlayer: (data: { roomCode: string; name: string; avatar: string; token?: string }) => void;
   playerReady: (data: { roomCode: string }) => void;
   hostStartGame: (data: { roomCode: string }) => void;
   hostResetRoom: (data: { roomCode: string }) => void;

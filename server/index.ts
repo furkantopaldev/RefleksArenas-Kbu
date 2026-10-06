@@ -72,6 +72,9 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(server, {
     methods: ['GET', 'POST'],
   },
   transports: ['websocket', 'polling'],
+  maxHttpBufferSize: 8 * 1024, // game payloads are tiny; reject anything bigger
+  pingInterval: 10000, // detect dead mobile connections quickly
+  pingTimeout: 20000,
 });
 
 const gameManager = new GameManager(io, primaryHostIp, CLIENT_PORT);
@@ -83,6 +86,13 @@ if (RENDER_EXTERNAL_URL) {
   console.log(`🌐 Render Canlı Domain Otomatik Bağlandı: ${RENDER_EXTERNAL_URL}`);
   gameManager.setCustomUrl(RENDER_EXTERNAL_URL);
 }
+
+// Keep the process alive on unexpected errors (a crash drops every player in the room)
+process.on('uncaughtException', (err) => console.error('[uncaughtException]', err));
+process.on('unhandledRejection', (err) => console.error('[unhandledRejection]', err));
+
+// Health check (Render / uptime monitors)
+app.get('/healthz', (_req, res) => res.json({ ok: true }));
 
 // REST API Endpoints
 app.get('/api/info', (req, res) => {
@@ -118,6 +128,12 @@ app.get('*', (req, res, next) => {
 // Socket connection
 io.on('connection', (socket) => {
   gameManager.handleConnection(socket);
+});
+
+// A failed listen (port in use) must stop the process, not be swallowed by the handlers above
+server.on('error', (err) => {
+  console.error('[server] listen error:', err);
+  process.exit(1);
 });
 
 server.listen(PORT, '0.0.0.0', () => {
