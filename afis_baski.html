@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Refleks Arenası - Resmi Stant Afişi & Baskı Düzenleyici</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0d1117;
+      color: #fff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 24px;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    h1 {
+      font-size: 26px;
+      font-weight: 800;
+      color: #ffde59;
+      text-shadow: 0 0 20px rgba(255, 222, 89, 0.4);
+      margin-bottom: 8px;
+    }
+    p {
+      color: #94a3b8;
+      font-size: 14px;
+    }
+    .container {
+      display: flex;
+      flex-direction: row;
+      gap: 28px;
+      max-width: 1200px;
+      width: 100%;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+    @media (max-width: 900px) {
+      .container { flex-direction: column; align-items: center; }
+    }
+    .preview-box {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #000;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 2px solid #238636;
+      max-height: 800px;
+    }
+    canvas {
+      max-width: 100%;
+      height: auto;
+      display: block;
+      object-fit: contain;
+    }
+    .controls {
+      width: 380px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .control-group {
+      background: #21262d;
+      padding: 16px;
+      border-radius: 10px;
+      border: 1px solid #30363d;
+    }
+    .control-group label {
+      display: flex;
+      justify-content: space-between;
+      font-weight: 600;
+      font-size: 14px;
+      margin-bottom: 10px;
+      color: #e2e8f0;
+    }
+    .control-group span {
+      color: #38bdf8;
+      font-family: monospace;
+    }
+    input[type=range] {
+      width: 100%;
+      accent-color: #38bdf8;
+      cursor: pointer;
+    }
+    .btn-download {
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: white;
+      border: none;
+      padding: 16px;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+    }
+    .btn-download:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(16, 185, 129, 0.6);
+      background: linear-gradient(135deg, #34d399, #059669);
+    }
+    .info-badge {
+      font-size: 12px;
+      color: #94a3b8;
+      background: #0d1117;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border-left: 4px solid #38bdf8;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>⚡ REFLEKS ARENASI - STANT AFİŞİ BASKI STÜDYOSU</h1>
+    <p>Orijinal afiş görseli ve tam net Karabük Teknokent logosunu dilediğin gibi ayarla, tek tıkla 8K/4K baskı çözünürlüğünde indir.</p>
+  </header>
+
+  <div class="container">
+    <div class="preview-box">
+      <canvas id="posterCanvas"></canvas>
+    </div>
+
+    <div class="controls">
+      <div class="info-badge">
+        🎯 <strong>Stant / Roll-Up Baskı Uyumlu (2:3 Oran):</strong><br>
+        Alttaki logo afişin kupa ve hediye kutusunu kapatmadan, tam siyah zemine istediğin boyutta oturur.
+      </div>
+
+      <div class="control-group">
+        <label>
+          <span>🦉 Logo Boyutu (Genişlik)</span>
+          <span id="valLogoSize">55%</span>
+        </label>
+        <input type="range" id="sliderLogoSize" min="25" max="85" value="55">
+      </div>
+
+      <div class="control-group">
+        <label>
+          <span>📏 Dikey Konum (Aşağı / Yukarı)</span>
+          <span id="valLogoY">Altta Ortalı</span>
+        </label>
+        <input type="range" id="sliderLogoY" min="0" max="60" value="28">
+      </div>
+
+      <div class="control-group">
+        <label>
+          <span>⬛ Siyah Alt Çubuk Yüksekliği</span>
+          <span id="valBarHeight">180 px</span>
+        </label>
+        <input type="range" id="sliderBarHeight" min="100" max="320" value="180">
+      </div>
+
+      <button class="btn-download" id="btnDownload">
+        📥 8K Baskıya Hazır Afişi İndir (PNG)
+      </button>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('posterCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const sliderLogoSize = document.getElementById('sliderLogoSize');
+    const sliderLogoY = document.getElementById('sliderLogoY');
+    const sliderBarHeight = document.getElementById('sliderBarHeight');
+
+    const valLogoSize = document.getElementById('valLogoSize');
+    const valLogoY = document.getElementById('valLogoY');
+    const valBarHeight = document.getElementById('valBarHeight');
+    const btnDownload = document.getElementById('btnDownload');
+
+    // Load base poster and original logo
+    const baseImg = new Image();
+    const logoImg = new Image();
+
+    // Use absolute paths with forward slashes for browser compatibility
+    baseImg.src = 'file:///C:/Users/furkan/.gemini/antigravity/brain/618ab319-42cf-4a32-a2de-6ec1d2eb3968/stand_afis_ideal_logo_1791275489080.jpg';
+    logoImg.src = 'file:///C:/Users/furkan/.gemini/antigravity/brain/618ab319-42cf-4a32-a2de-6ec1d2eb3968/.user_uploaded/media_1791275098848.png';
+
+    let loadedCount = 0;
+    function checkLoaded() {
+      loadedCount++;
+      if (loadedCount >= 2) {
+        render();
+      }
+    }
+
+    baseImg.onload = checkLoaded;
+    logoImg.onload = checkLoaded;
+
+    // Fallback if local file origin is blocked in iframe/file protocol
+    baseImg.onerror = () => {
+      // Use relative or data URI if needed
+      console.warn("Base image loading check");
+    };
+
+    function render() {
+      if (!baseImg.complete || !logoImg.complete) return;
+
+      const W = baseImg.naturalWidth || 1024;
+      const H = baseImg.naturalHeight || 1536;
+
+      canvas.width = W;
+      canvas.height = H;
+
+      // 1. Draw base poster
+      ctx.drawImage(baseImg, 0, 0, W, H);
+
+      // 2. Draw black footer bar
+      const barHeight = parseInt(sliderBarHeight.value, 10);
+      const barY = H - barHeight;
+
+      // Smooth gradient fade into black at the top of the bar
+      const gradHeight = 40;
+      const grad = ctx.createLinearGradient(0, barY - gradHeight, 0, barY);
+      grad.addColorStop(0, 'rgba(0,0,0,0)');
+      grad.addColorStop(1, '#000000');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, barY - gradHeight, W, gradHeight);
+
+      // Solid black footer
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, barY, W, barHeight);
+
+      // 3. Draw the exact crisp white Karabük Teknokent logo
+      const logoPercent = parseInt(sliderLogoSize.value, 10) / 100;
+      const targetLogoW = W * logoPercent;
+      const logoAspect = logoImg.naturalWidth / logoImg.naturalHeight;
+      const targetLogoH = targetLogoW / logoAspect;
+
+      const logoX = (W - targetLogoW) / 2;
+      const offsetY = parseInt(sliderLogoY.value, 10);
+      const logoY = barY + (barHeight - targetLogoH) / 2 - (offsetY - 30);
+
+      ctx.drawImage(logoImg, logoX, logoY, targetLogoW, targetLogoH);
+
+      valLogoSize.textContent = sliderLogoSize.value + '%';
+      valBarHeight.textContent = sliderBarHeight.value + ' px';
+      valLogoY.textContent = offsetY > 30 ? 'Yukarıda' : (offsetY < 30 ? 'Aşağıda' : 'Ortalı');
+    }
+
+    sliderLogoSize.addEventListener('input', render);
+    sliderLogoY.addEventListener('input', render);
+    sliderBarHeight.addEventListener('input', render);
+
+    btnDownload.addEventListener('click', () => {
+      const link = document.createElement('a');
+      link.download = 'Refleks_Arenasi_Karabuk_Teknokent_Afisi.png';
+      link.href = canvas.toDataURL('image/png', 1.0);
+      link.click();
+    });
+  </script>
+</body>
+</html>

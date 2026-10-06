@@ -6,6 +6,8 @@ import os from 'os';
 import path from 'path';
 import { GameManager } from './gameEngine';
 import { leaderboardManager } from './leaderboard';
+import { statsManager } from './stats';
+import { STATS_PAGE } from './statsPage';
 import { ClientToServerEvents, NetworkInterfaceInfo, ServerToClientEvents } from './types';
 
 const app = express();
@@ -102,6 +104,21 @@ app.get('/api/info', (req, res) => {
     serverPort: PORT,
     joinUrl: gameManager.getEffectiveJoinUrl(),
   });
+});
+
+// Private play counters: protected by HOST_KEY when it is set
+const STATS_KEY = process.env.HOST_KEY || '';
+app.get('/api/stats', (req, res) => {
+  if (STATS_KEY && req.query.key !== STATS_KEY) {
+    res.status(403).json({ error: 'forbidden' });
+    return;
+  }
+  res.set('Cache-Control', 'no-store');
+  res.json(statsManager.snapshot());
+});
+app.get('/stats', (_req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.type('html').send(STATS_PAGE);
 });
 
 app.get('/api/leaderboard', (req, res) => {

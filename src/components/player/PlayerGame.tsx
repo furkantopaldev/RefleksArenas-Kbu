@@ -171,7 +171,7 @@ export const PlayerGame: React.FC<PlayerGameProps> = ({
       )}
 
       {/* Bottom: Interactive Touch Cards Grid */}
-      <div className="flex-1 flex items-center justify-center min-h-[300px] mb-2">
+      <div className="flex-1 flex min-h-[300px] mb-2">
         {currentTask && (
           <CardGrid
             cards={currentTask.cards}

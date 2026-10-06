@@ -32,7 +32,7 @@ export const CardGrid: React.FC<CardGridProps> = ({ cards, onTapCard, disabled =
 
   return (
     <div
-      className={`grid gap-3 md:gap-4 w-full h-full max-w-lg mx-auto ${
+      className={`grid gap-3 md:gap-4 w-full max-w-lg mx-auto ${
         isSixGrid ? 'grid-cols-2 grid-rows-3' : 'grid-cols-2 grid-rows-2'
       }`}
     >

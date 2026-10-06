@@ -16,6 +16,7 @@ import {
   TaskType,
 } from './types';
 import { leaderboardManager } from './leaderboard';
+import { statsManager } from './stats';
 
 // Turkish color names and hex values
 export const COLOR_PALETTE = [
@@ -39,6 +40,15 @@ export const SHAPES: { name: string; type: ShapeType }[] = [
 // Optional: when set, only a host screen opened with this key may control the room
 const HOST_KEY = process.env.HOST_KEY || '';
 const RECONNECT_GRACE_MS = 30000;
+
+// Scoring: speed matters most, streaks give a small capped bonus, mistakes cost a little
+const BASE_POINTS = 100;
+const BONUS_ROUND_MULTIPLIER = 2; // '2X' rounds double the base points only
+const MAX_SPEED_BONUS = 100;
+const SPEED_FULL_MS = 400; // answers this fast (network latency included) earn the full speed bonus
+const COMBO_STEP = 10; // +10 per consecutive correct answer after the first...
+const MAX_COMBO_BONUS = 50; // ...capped at +50
+const WRONG_PENALTY = 25;
 
 const BOT_NAMES =['🤖 Refleks Bot 1', '🤖 Refleks Bot 2', '🤖 Refleks Bot 3', '🤖 Refleks Bot 4'];
 const BOT_AVATARS = ['🤖', '⚡', '🎯', '🔥', '🦁', '🦊'];
@@ -181,6 +191,16 @@ export class GameManager {
     const grace = this.graceTimers.get(id);
     if (grace) clearTimeout(grace);
     this.graceTimers.delete(id);
+  }
+
+  // Points for a correct answer: base + speed bonus (linear over the task window) + capped streak bonus
+  private scoreCorrect(task: GameTask, reactionMs: number, comboAfterHit: number): number {
+    const base = BASE_POINTS * (task.badgeText?.includes('2X') ? BONUS_ROUND_MULTIPLIER : 1);
+    const window = Math.max(1, task.durationMs - SPEED_FULL_MS);
+    const speedRatio = Math.min(1, Math.max(0, 1 - (reactionMs - SPEED_FULL_MS) / window));
+    const speedBonus = Math.round(MAX_SPEED_BONUS * speedRatio);
+    const comboBonus = Math.min(MAX_COMBO_BONUS, Math.max(0, comboAfterHit - 1) * COMBO_STEP);
+    return base + speedBonus + comboBonus;
   }
 
   // Everyone who is still connected has answered correctly
@@ -419,27 +439,12 @@ export class GameManager {
           player.maxCombo = player.combo;
         }
 
-        // Base points: 2X if round has bonus modifier
-        const isBonusRound = Boolean(this.currentTask.badgeText?.includes('2X'));
-        let basePoints = isBonusRound ? 200 : 100;
-
-        // Speed bonus
-        let speedBonus = 0;
-        if (reactionTimeMs < 400) speedBonus = 50;
-        else if (reactionTimeMs < 800) speedBonus = 25;
-
-        // Combo bonus
-        let comboBonus = 0;
-        if (player.combo >= 8) comboBonus = 100;
-        else if (player.combo >= 5) comboBonus = 50;
-        else if (player.combo >= 3) comboBonus = 25;
-
-        pointsDelta = basePoints + speedBonus + comboBonus;
+        pointsDelta = this.scoreCorrect(this.currentTask, reactionTimeMs, player.combo);
         player.score += pointsDelta;
       } else {
         player.wrongCount += 1;
         player.combo = 0;
-        pointsDelta = -25; // Balanced fair penalty
+        pointsDelta = -WRONG_PENALTY;
         player.score = Math.max(0, player.score + pointsDelta);
         // Player is NOT locked out; they can retry after 220ms!
       }
@@ -533,6 +538,8 @@ export class GameManager {
       player.reactionTimes = [];
     }
 
+    statsManager.recordRound(Array.from(this.players.values()).filter((p) => !p.isBot).length);
+
     this.io.to(this.roomCode).emit('gameStarted');
     this.broadcastRoomUpdate();
 
@@ -615,13 +622,12 @@ export class GameManager {
           bot.correctCount += 1;
           bot.combo += 1;
           if (bot.combo > bot.maxCombo) bot.maxCombo = bot.combo;
-          const speedBonus = delay < 600 ? 40 : 20;
-          pointsDelta = (targetCard!.isBonus ? 150 : 100) + speedBonus;
+          pointsDelta = this.scoreCorrect(task, delay, bot.combo);
           bot.score += pointsDelta;
         } else {
           bot.wrongCount += 1;
           bot.combo = 0;
-          bot.score = Math.max(0, bot.score - 50);
+          bot.score = Math.max(0, bot.score - WRONG_PENALTY);
         }
 
         this.broadcastRoomUpdate();
