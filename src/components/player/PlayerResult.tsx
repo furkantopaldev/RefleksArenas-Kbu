@@ -1,13 +1,14 @@
 import React from 'react';
-import { PlayerResultSummary } from '../../types';
+import { PlayerResultSummary, PrizeResult } from '../../types';
 import { Trophy, Target, Clock, Flame, Zap, Award } from 'lucide-react';
 
 interface PlayerResultProps {
   myResult: PlayerResultSummary | null;
   playerId: string;
+  prize?: PrizeResult | null;
 }
 
-export const PlayerResult: React.FC<PlayerResultProps> = ({ myResult }) => {
+export const PlayerResult: React.FC<PlayerResultProps> = ({ myResult, prize }) => {
   if (!myResult) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-white">
@@ -33,6 +34,34 @@ export const PlayerResult: React.FC<PlayerResultProps> = ({ myResult }) => {
           {isWinner ? '🏆 1. SIRA - ŞAMPİYON!' : `${myResult.rank}. Sıra`}
         </div>
       </div>
+
+      {/* Prize banner */}
+      {prize && prize.status === 'WON' && (
+        <div className="mb-5 rounded-3xl p-5 text-center bg-gradient-to-b from-yellow-300 to-amber-500 text-purple-950 shadow-2xl glow-yellow animate-pop">
+          <div className="text-4xl mb-1">🎁</div>
+          <div className="text-xs font-black uppercase tracking-widest">Tebrikler, ödül kazandın!</div>
+          <div className="text-2xl font-black my-1">{prize.prize}</div>
+          <div className="inline-block bg-purple-950 text-yellow-300 rounded-2xl px-5 py-2 font-mono text-3xl font-black tracking-[0.25em] my-2">
+            {prize.code}
+          </div>
+          <div className="text-xs font-bold">Bu ekranı stand görevlisine göster. Ekranı kapatma!</div>
+        </div>
+      )}
+      {prize && prize.status === 'AGAIN' && (
+        <div className="mb-5 rounded-3xl p-4 text-center bg-white/10 border border-yellow-400/40 text-white">
+          <div className="text-2xl mb-1">🎁</div>
+          <div className="font-black">Bugün zaten ödül kazandın: {prize.prize}</div>
+          {prize.code && <div className="font-mono text-2xl font-black text-yellow-300 tracking-[0.25em] mt-1">{prize.code}</div>}
+          <div className="text-xs text-white/70 mt-1">Aynı cihaz günde bir ödül kazanabilir.</div>
+        </div>
+      )}
+      {prize && prize.status === 'SOLD_OUT' && (
+        <div className="mb-5 rounded-3xl p-4 text-center bg-white/10 border border-white/20 text-white">
+          <div className="text-2xl mb-1">🎁</div>
+          <div className="font-black">Ödül puanını geçtin ama bugünkü ödüller tükendi.</div>
+          <div className="text-xs text-white/70 mt-1">Durumu stand görevlisine sorabilirsin.</div>
+        </div>
+      )}
 
       {/* Main Score Box */}
       <div className="bg-white/5 border-2 border-party-yellow/40 rounded-3xl p-6 backdrop-blur-md shadow-2xl text-center mb-6">

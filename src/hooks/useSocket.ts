@@ -7,6 +7,7 @@ import {
   GameTask,
   LeaderboardEntry,
   PlayerResultSummary,
+  PrizeResult,
   ServerToClientEvents,
 } from '../types';
 import { soundEffects } from '../audio/soundEffects';
@@ -47,6 +48,7 @@ export function useSocket() {
     newScore: number;
     combo: number;
   } | null>(null);
+  const [prize, setPrize] = useState<PrizeResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [rejoinEvent, setRejoinEvent] = useState<{ ok: boolean; n: number } | null>(null);
 
@@ -90,9 +92,14 @@ export function useSocket() {
       soundEffects.playCountdown(false);
     });
 
+    socket.on('prizeResult', (data: PrizeResult) => {
+      setPrize(data);
+    });
+
     socket.on('gameStarted', () => {
       setCountdown(null);
       setResults([]);
+      setPrize(null);
       soundEffects.playCountdown(true);
     });
 
@@ -136,6 +143,7 @@ export function useSocket() {
     );
 
     socket.on('roomReset', () => {
+      setPrize(null);
       setCountdown(null);
       setCurrentTask(null);
       setResults([]);
@@ -143,6 +151,7 @@ export function useSocket() {
     });
 
     socket.on('playerKicked', () => {
+      setPrize(null);
       setCountdown(null);
       setCurrentTask(null);
       setResults([]);
@@ -206,6 +215,7 @@ export function useSocket() {
     leaderboard,
     lastTapFeedback,
     errorMessage,
+    prize,
     rejoinEvent,
     joinAsHost,
     joinAsPlayer,

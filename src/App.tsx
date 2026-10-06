@@ -23,6 +23,7 @@ export function App() {
     leaderboard,
     lastTapFeedback,
     errorMessage,
+    prize,
     rejoinEvent,
     joinAsHost,
     joinAsPlayer,
@@ -199,7 +200,7 @@ export function App() {
           )}
 
           {roomState === 'ENDED' && (
-            <PlayerResult myResult={myResult} playerId={socket?.id || ''} />
+            <PlayerResult myResult={myResult} playerId={socket?.id || ''} prize={prize} />
           )}
         </main>
       ) : (

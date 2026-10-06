@@ -64,6 +64,13 @@ export interface PlayerResultSummary {
   correctCount: number;
   wrongCount: number;
   isWinner: boolean;
+  prizeTitle?: string; // set when this player won a prize (public: no code)
+}
+
+export interface PrizeResult {
+  status: 'WON' | 'AGAIN' | 'SOLD_OUT';
+  prize: string;
+  code?: string;
 }
 
 export interface LeaderboardEntry {
@@ -93,6 +100,7 @@ export interface ServerToClientEvents {
   roomReset: () => void;
   playerKicked: () => void;
   errorNotification: (message: string) => void;
+  prizeResult: (data: PrizeResult) => void;
 }
 
 export interface NetworkInterfaceInfo {

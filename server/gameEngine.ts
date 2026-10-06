@@ -10,6 +10,7 @@ import {
   NetworkInterfaceInfo,
   Player,
   PlayerResultSummary,
+  PrizeResult,
   RoomState,
   ServerToClientEvents,
   ShapeType,
@@ -17,6 +18,7 @@ import {
 } from './types';
 import { leaderboardManager } from './leaderboard';
 import { statsManager } from './stats';
+import { prizeManager } from './prizes';
 
 // Turkish color names and hex values
 export const COLOR_PALETTE = [
@@ -49,6 +51,11 @@ const SPEED_FULL_MS = 400; // answers this fast (network latency included) earn 
 const COMBO_STEP = 10; // +10 per consecutive correct answer after the first...
 const MAX_COMBO_BONUS = 50; // ...capped at +50
 const WRONG_PENALTY = 25;
+
+// Pacing: how long each task stays up (ms) when somebody does not answer. Longer = easier for first-timers.
+const TASK_MS = { phase1: 3000, stroop: 3600, negation: 3200, phase3: 2600 };
+// Breathing room between a fully solved task and the next one
+const ADVANCE_DELAY_MS = 500;
 
 const BOT_NAMES =['🤖 Refleks Bot 1', '🤖 Refleks Bot 2', '🤖 Refleks Bot 3', '🤖 Refleks Bot 4'];
 const BOT_AVATARS = ['🤖', '⚡', '🎯', '🔥', '🦁', '🦊'];
@@ -97,6 +104,7 @@ export class GameManager {
   private idToToken: Map<string, string> = new Map();
   private graceTimers: Map<string, NodeJS.Timeout> = new Map();
   private lastResults: PlayerResultSummary[] | null = null;
+  private prizeByPlayerId: Map<string, PrizeResult> = new Map();
 
   constructor(io: Server<ClientToServerEvents, ServerToClientEvents>, hostIp: string, port: number) {
     this.io = io;
@@ -171,6 +179,11 @@ export class GameManager {
       this.idToToken.delete(oldId);
       this.idToToken.set(newId, token);
       this.tokenToId.set(token, newId);
+    }
+    const prize = this.prizeByPlayerId.get(oldId);
+    if (prize) {
+      this.prizeByPlayerId.delete(oldId);
+      this.prizeByPlayerId.set(newId, prize);
     }
     if (this.playerTappedForCurrentTask.delete(oldId)) this.playerTappedForCurrentTask.add(newId);
     this.playerLastTapTimestamp.delete(oldId);
@@ -274,6 +287,8 @@ export class GameManager {
       if (this.state === 'PLAYING' && this.currentTask) socket.emit('taskChanged', this.currentTask);
       if (this.state === 'ENDED' && this.lastResults) {
         socket.emit('gameEnded', this.lastResults, leaderboardManager.getTopEntries(10));
+        const prize = this.prizeByPlayerId.get(socket.id);
+        if (prize) socket.emit('prizeResult', prize);
       }
       this.broadcastRoomUpdate();
     });
@@ -461,7 +476,7 @@ export class GameManager {
       this.broadcastRoomUpdate();
 
       // If all connected players have solved correctly, advance to next task quickly
-      if (this.allConnectedSolved()) this.scheduleAdvance(150);
+      if (this.allConnectedSolved()) this.scheduleAdvance(ADVANCE_DELAY_MS);
     });
 
     // Handle Disconnect
@@ -487,7 +502,7 @@ export class GameManager {
           }, RECONNECT_GRACE_MS)
         );
       } else if (this.state === 'PLAYING' && this.allConnectedSolved()) {
-        this.scheduleAdvance(150);
+        this.scheduleAdvance(ADVANCE_DELAY_MS);
       }
       this.broadcastRoomUpdate();
     });
@@ -632,7 +647,7 @@ export class GameManager {
 
         this.broadcastRoomUpdate();
 
-        if (this.allConnectedSolved()) this.scheduleAdvance(250);
+        if (this.allConnectedSolved()) this.scheduleAdvance(ADVANCE_DELAY_MS);
       }, delay);
 
       this.botIntervals.push(timer);
@@ -692,9 +707,33 @@ export class GameManager {
       });
     }
 
+    // Prizes: best scores first so limited stock goes to the highest. Bots and dropped players are skipped.
+    const prizeResults = prizeManager.evaluate(
+      results
+        .filter((r) => {
+          const pl = this.players.get(r.id);
+          return pl && !pl.isBot && pl.connected;
+        })
+        .map((r) => ({
+          id: r.id,
+          name: r.name,
+          avatar: r.avatar,
+          score: r.score,
+          device: this.idToToken.get(r.id) || r.id,
+        }))
+    );
+    this.prizeByPlayerId.clear();
+    for (const r of results) {
+      const pr = prizeResults.get(r.id);
+      if (!pr) continue;
+      this.prizeByPlayerId.set(r.id, pr);
+      if (pr.status === 'WON') r.prizeTitle = pr.prize;
+    }
+
     this.lastResults = results;
     const topLeaderboard = leaderboardManager.getTopEntries(10);
     this.io.to(this.roomCode).emit('gameEnded', results, topLeaderboard);
+    for (const [playerId, pr] of this.prizeByPlayerId) this.io.to(playerId).emit('prizeResult', pr);
     this.broadcastRoomUpdate();
   }
 
@@ -719,6 +758,7 @@ export class GameManager {
     this.graceTimers.forEach((t) => clearTimeout(t));
     this.graceTimers.clear();
     this.lastResults = null;
+    this.prizeByPlayerId.clear();
 
     this.io.to(this.roomCode).emit('roomReset');
     this.broadcastRoomUpdate();
@@ -754,7 +794,7 @@ export class GameManager {
           targetKey: targetColor.name,
           cards: shuffleArray(cards),
           createdAt: Date.now(),
-          durationMs: 2100,
+          durationMs: TASK_MS.phase1,
         };
       } else {
         const targetShape = shuffledShapes[0];
@@ -777,7 +817,7 @@ export class GameManager {
           targetKey: targetShape.type,
           cards: shuffleArray(cards),
           createdAt: Date.now(),
-          durationMs: 2100,
+          durationMs: TASK_MS.phase1,
         };
       }
     }
@@ -809,7 +849,7 @@ export class GameManager {
           targetKey: actualInkColor.name,
           cards: shuffleArray(rawCards),
           createdAt: Date.now(),
-          durationMs: 2600,
+          durationMs: TASK_MS.stroop,
         };
       }
       // Mode B: Stroop Kelimenin Anlamına Dokun (Word Meaning)
@@ -840,7 +880,7 @@ export class GameManager {
           targetKey: targetMeaningColor.name,
           cards: shuffleArray(rawCards),
           createdAt: Date.now(),
-          durationMs: 2600,
+          durationMs: TASK_MS.stroop,
         };
       }
       // Mode C: Negatif / Olmayan Renk
@@ -868,7 +908,7 @@ export class GameManager {
           targetKey: validColor.name,
           cards: shuffleArray(rawCards),
           createdAt: Date.now(),
-          durationMs: 2400,
+          durationMs: TASK_MS.negation,
         };
       }
     }
@@ -898,7 +938,7 @@ export class GameManager {
         targetKey: targetShape.type,
         cards: shuffleArray(rawCards),
         createdAt: Date.now(),
-        durationMs: 1800,
+        durationMs: TASK_MS.phase3,
       };
     } else {
       // Renk Sorusu
@@ -921,7 +961,7 @@ export class GameManager {
         targetKey: targetColor.name,
         cards: shuffleArray(rawCards),
         createdAt: Date.now(),
-        durationMs: 1800,
+        durationMs: TASK_MS.phase3,
       };
     }
   }

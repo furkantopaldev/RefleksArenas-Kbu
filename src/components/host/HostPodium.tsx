@@ -55,6 +55,25 @@ export const HostPodium: React.FC<HostPodiumProps> = ({ results, leaderboard, on
         </h2>
       </div>
 
+      {/* Prize winners */}
+      {results.some((r) => r.prizeTitle) && (
+        <div className="max-w-3xl mx-auto w-full space-y-2 mb-2 animate-pop">
+          {results
+            .filter((r) => r.prizeTitle)
+            .map((r) => (
+              <div
+                key={r.id}
+                className="flex items-center justify-center gap-3 px-5 py-3 rounded-2xl bg-gradient-to-r from-yellow-300 to-amber-500 text-purple-950 font-black text-lg md:text-2xl text-center shadow-xl glow-yellow"
+              >
+                <span className="text-3xl">🎁</span>
+                <span>
+                  {r.name} isimli yarışmacı {r.prizeTitle} kazandı!
+                </span>
+              </div>
+            ))}
+        </div>
+      )}
+
       {/* Podium Display */}
       <div className="grid grid-cols-3 gap-3 md:gap-6 items-end max-w-3xl mx-auto w-full my-6">
         {/* 2nd Place */}
@@ -138,6 +157,11 @@ export const HostPodium: React.FC<HostPodiumProps> = ({ results, leaderboard, on
                 <span className="font-bold text-white text-sm block leading-tight">
                   {p.rank}. {p.name}
                 </span>
+                {p.prizeTitle && (
+                  <span className="inline-block mt-1 px-2 py-0.5 rounded-full bg-yellow-400 text-purple-950 text-[11px] font-black">
+                    🎁 {p.prizeTitle} kazandı!
+                  </span>
+                )}
                 <div className="flex items-center gap-2 text-xs text-white/60 mt-1">
                   <span className="flex items-center gap-0.5">
                     <Target className="w-3 h-3 text-emerald-400" />

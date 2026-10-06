@@ -7,6 +7,7 @@ import path from 'path';
 import { GameManager } from './gameEngine';
 import { leaderboardManager } from './leaderboard';
 import { statsManager } from './stats';
+import { prizeManager } from './prizes';
 import { STATS_PAGE } from './statsPage';
 import { ClientToServerEvents, NetworkInterfaceInfo, ServerToClientEvents } from './types';
 
@@ -14,7 +15,7 @@ const app = express();
 const server = http.createServer(app);
 
 app.use(cors({ origin: '*' }));
-app.use(express.json());
+app.use(express.json({ limit: '4kb' }));
 
 // Determine all valid local network IPv4 addresses
 export function getAllNetworkInterfaces(): NetworkInterfaceInfo[] {
@@ -114,7 +115,40 @@ app.get('/api/stats', (req, res) => {
     return;
   }
   res.set('Cache-Control', 'no-store');
-  res.json(statsManager.snapshot());
+  res.json({ ...statsManager.snapshot(), prizes: prizeManager.snapshot() });
+});
+
+// Changing prize settings needs the key (refused outright when no HOST_KEY is configured)
+function adminAllowed(req: express.Request, res: express.Response): boolean {
+  if (!STATS_KEY || req.body?.key !== STATS_KEY) {
+    res.status(403).json({ error: 'forbidden' });
+    return false;
+  }
+  return true;
+}
+app.post('/api/prizes/config', (req, res) => {
+  if (!adminAllowed(req, res)) return;
+  const tiers = Array.isArray(req.body?.tiers) ? req.body.tiers.slice(0, 10) : [];
+  prizeManager.setTiers(
+    tiers
+      .filter((t: any) => t && typeof t.id === 'string')
+      .map((t: any) => ({
+        id: t.id,
+        minScore: typeof t.minScore === 'number' ? t.minScore : undefined,
+        limit: typeof t.limit === 'number' ? t.limit : undefined,
+        prize: typeof t.prize === 'string' ? t.prize : undefined,
+      }))
+  );
+  res.json(prizeManager.snapshot());
+});
+app.post('/api/prizes/claim', (req, res) => {
+  if (!adminAllowed(req, res)) return;
+  const { code, claimed } = req.body || {};
+  if (typeof code !== 'string') {
+    res.status(400).json({ error: 'bad request' });
+    return;
+  }
+  res.json({ ok: prizeManager.setClaimed(code.toUpperCase().slice(0, 8), claimed !== false) });
 });
 app.get('/stats', (_req, res) => {
   res.set('Cache-Control', 'no-store');
