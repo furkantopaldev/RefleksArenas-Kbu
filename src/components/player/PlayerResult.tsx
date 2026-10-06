@@ -41,25 +41,14 @@ export const PlayerResult: React.FC<PlayerResultProps> = ({ myResult, prize }) =
           <div className="text-4xl mb-1">🎁</div>
           <div className="text-xs font-black uppercase tracking-widest">Tebrikler, ödül kazandın!</div>
           <div className="text-2xl font-black my-1">{prize.prize}</div>
-          <div className="inline-block bg-purple-950 text-yellow-300 rounded-2xl px-5 py-2 font-mono text-3xl font-black tracking-[0.25em] my-2">
-            {prize.code}
-          </div>
-          <div className="text-xs font-bold">Bu ekranı stand görevlisine göster. Ekranı kapatma!</div>
+          <div className="text-xs font-bold mt-2">Bu ekranı stand görevlisine göster.</div>
         </div>
       )}
       {prize && prize.status === 'AGAIN' && (
         <div className="mb-5 rounded-3xl p-4 text-center bg-white/10 border border-yellow-400/40 text-white">
           <div className="text-2xl mb-1">🎁</div>
           <div className="font-black">Bugün zaten ödül kazandın: {prize.prize}</div>
-          {prize.code && <div className="font-mono text-2xl font-black text-yellow-300 tracking-[0.25em] mt-1">{prize.code}</div>}
           <div className="text-xs text-white/70 mt-1">Aynı cihaz günde bir ödül kazanabilir.</div>
-        </div>
-      )}
-      {prize && prize.status === 'SOLD_OUT' && (
-        <div className="mb-5 rounded-3xl p-4 text-center bg-white/10 border border-white/20 text-white">
-          <div className="text-2xl mb-1">🎁</div>
-          <div className="font-black">Ödül puanını geçtin ama bugünkü ödüller tükendi.</div>
-          <div className="text-xs text-white/70 mt-1">Durumu stand görevlisine sorabilirsin.</div>
         </div>
       )}
 
