@@ -53,9 +53,9 @@ const MAX_COMBO_BONUS = 50; // ...capped at +50
 const WRONG_PENALTY = 25;
 
 // Pacing: how long each task stays up (ms) when somebody does not answer. Longer = easier for first-timers.
-const TASK_MS = { phase1: 3000, stroop: 3600, negation: 3200, phase3: 2600 };
+const TASK_MS = { phase1: 4800, stroop: 5800, negation: 5200, phase3: 4200 };
 // Breathing room between a fully solved task and the next one
-const ADVANCE_DELAY_MS = 500;
+const ADVANCE_DELAY_MS = 800;
 
 const BOT_NAMES =['🤖 Refleks Bot 1', '🤖 Refleks Bot 2', '🤖 Refleks Bot 3', '🤖 Refleks Bot 4'];
 const BOT_AVATARS = ['🤖', '⚡', '🎯', '🔥', '🦁', '🦊'];

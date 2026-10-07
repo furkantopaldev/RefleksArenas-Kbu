@@ -18,9 +18,9 @@ export interface PrizeTier {
 
 // Defaults for ~300 players/day and 15 prizes (top ~5%): thresholds come from the pacing model
 const DEFAULT_TIERS: PrizeTier[] = [
-  { id: 'top', prize: 'Defter + Kalem', minScore: 7000, limit: 5 },
-  { id: 'mid', prize: 'Kupa Bardağı', minScore: 6600, limit: 5 },
-  { id: 'low', prize: 'Kolonya', minScore: 6300, limit: 5 },
+  { id: 'top', prize: 'Defter + Kalem', minScore: 6100, limit: 5 },
+  { id: 'mid', prize: 'Kupa Bardağı', minScore: 5800, limit: 5 },
+  { id: 'low', prize: 'Kolonya', minScore: 5500, limit: 5 },
 ];
 
 export interface Award {
